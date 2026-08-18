@@ -14,10 +14,22 @@ class Seeder
     }
 
     /**
+     * @param string $password password for the sample staff accounts, chosen
+     *                         by the administrator during installation
      * @return array summary counts
      */
-    public function run()
+    public function run($password)
     {
+        // No default. A demo password baked into the source would be the same
+        // on every installation, including any that reaches a real server.
+        $password = (string) $password;
+        if (mb_strlen($password) < 8) {
+            return array(
+                'ok'      => false,
+                'message' => 'กรุณากำหนดรหัสผ่านสำหรับบัญชีตัวอย่าง อย่างน้อย 8 ตัวอักษร',
+            );
+        }
+
         $existing = $this->repo->one(
             'SELECT id FROM `{p}schools` WHERE name = ?',
             array('วิทยาลัยเทคนิคเพชรบูรณ์')
@@ -62,17 +74,17 @@ class Seeder
 
         $advisorId = $this->repo->createUser(array(
             'school_id' => $schoolId, 'department_id' => $departments[0], 'role' => 'advisor',
-            'email' => 'advisor@petchtech.demo', 'password' => 'demo1234',
+            'email' => 'advisor@petchtech.demo', 'password' => $password,
             'full_name' => 'นางสาวปิยะดา รักเรียน', 'status' => 'active',
         ));
         $this->repo->createUser(array(
             'school_id' => $schoolId, 'role' => 'exec',
-            'email' => 'exec@petchtech.demo', 'password' => 'demo1234',
+            'email' => 'exec@petchtech.demo', 'password' => $password,
             'full_name' => 'นางวราภรณ์ สุขใจ', 'status' => 'active',
         ));
         $this->repo->createUser(array(
             'school_id' => $schoolId, 'role' => 'schooladmin',
-            'email' => 'admin@petchtech.demo', 'password' => 'demo1234',
+            'email' => 'admin@petchtech.demo', 'password' => $password,
             'full_name' => 'นายสมชาย ภักดี', 'status' => 'active',
         ));
 
@@ -189,10 +201,14 @@ class Seeder
             'ok'      => true,
             'message' => 'สร้างข้อมูลตัวอย่าง: สถานศึกษา 3 แห่ง, ศิษย์เก่า ' . $alumniCount
                 . ' คน, คำตอบแบบสำรวจ ' . $statusCount . ' รายการ',
+            // The password is deliberately not repeated here: it is the one
+            // just typed into the installer, and echoing it back would put it
+            // into the page, the browser history and any proxy log.
             'accounts' => array(
-                'advisor@petchtech.demo / demo1234 (ครูที่ปรึกษา)',
-                'exec@petchtech.demo / demo1234 (ผู้บริหาร)',
-                'admin@petchtech.demo / demo1234 (ผู้ดูแลสถานศึกษา)',
+                'advisor@petchtech.demo (ครูที่ปรึกษา)',
+                'exec@petchtech.demo (ผู้บริหาร)',
+                'admin@petchtech.demo (ผู้ดูแลสถานศึกษา)',
+                'ทั้งสามบัญชีใช้รหัสผ่านที่คุณกำหนดไว้',
                 'ศิษย์เก่า: รหัส 6231010001 / เลขบัตร 1100000000001',
             ),
         );

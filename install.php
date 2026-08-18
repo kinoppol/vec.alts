@@ -447,15 +447,22 @@ if (is_post() && post('action') === 'maintenance' && $authorised) {
                 : 'ไม่มี migration ที่ย้อนกลับได้');
 
         } elseif ($task === 'seed') {
-            try {
-                $seeder = new Seeder($repo);
-                $seed = $seeder->run();
-                notice($seed['ok'] ? 'success' : 'warn', $seed['message']);
-                if (!empty($seed['accounts'])) {
-                    notice('info', 'บัญชีตัวอย่าง — ' . implode(' · ', $seed['accounts']));
+            $seedPassword = post('seed_password');
+            $seedConfirm = post('seed_password_confirm');
+
+            if ($seedPassword !== $seedConfirm) {
+                notice('error', 'รหัสผ่านบัญชีตัวอย่างทั้งสองช่องไม่ตรงกัน');
+            } else {
+                try {
+                    $seeder = new Seeder($repo);
+                    $seed = $seeder->run($seedPassword);
+                    notice($seed['ok'] ? 'success' : 'warn', $seed['message']);
+                    if (!empty($seed['accounts'])) {
+                        notice('info', 'บัญชีตัวอย่าง — ' . implode(' · ', $seed['accounts']));
+                    }
+                } catch (PDOException $e) {
+                    notice('error', 'สร้างข้อมูลตัวอย่างไม่สำเร็จ: ' . $e->getMessage());
                 }
-            } catch (PDOException $e) {
-                notice('error', 'สร้างข้อมูลตัวอย่างไม่สำเร็จ: ' . $e->getMessage());
             }
 
         } elseif ($task === 'reset-admin') {

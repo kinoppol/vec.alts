@@ -459,6 +459,19 @@ code{background:var(--surface-2);padding:2px 6px;border-radius:5px;font-size:12p
       <form method="post" action="<?php echo e(install_url()); ?>">
         <?php echo csrf_field(); ?>
         <input type="hidden" name="action" value="maintenance">
+        <div class="grid2">
+          <div class="field">
+            <label class="lbl" for="seed_password">รหัสผ่านบัญชีตัวอย่าง</label>
+            <input class="inp" type="password" id="seed_password" name="seed_password"
+                   minlength="8" autocomplete="new-password">
+            <div class="hint">อย่างน้อย 8 ตัวอักษร ใช้ร่วมกันทั้งสามบัญชีตัวอย่าง</div>
+          </div>
+          <div class="field">
+            <label class="lbl" for="seed_password_confirm">ยืนยันรหัสผ่าน</label>
+            <input class="inp" type="password" id="seed_password_confirm"
+                   name="seed_password_confirm" minlength="8" autocomplete="new-password">
+          </div>
+        </div>
         <button type="submit" name="task" value="seed" class="btn">สร้างข้อมูลตัวอย่าง</button>
       </form>
 
