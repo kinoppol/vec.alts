@@ -1,0 +1,38 @@
+# Pretty URLs where mod_rewrite is available. The application works without
+# this file too: every internal link is generated as index.php?r=route
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /vec.alts/
+
+    # Never rewrite files or directories that actually exist.
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    RewriteRule ^(.*)$ index.php/$1 [L]
+</IfModule>
+
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set Referrer-Policy "same-origin"
+</IfModule>
+
+# PHP 5.4 on CentOS 7 still ships with these on by default.
+<IfModule mod_php5.c>
+    php_flag display_errors Off
+    php_flag magic_quotes_gpc Off
+    php_value default_charset "UTF-8"
+</IfModule>
+
+DirectoryIndex index.php
+
+<FilesMatch "\.(md|sql|log|sample\.php)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>

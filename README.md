@@ -1,22 +1,176 @@
-# CODING AGENTS: READ THIS FIRST
+# ระบบติดตามศิษย์เก่า (Vocational Alumni Tracking)
 
-This is a **handoff bundle** from Claude Design (claude.ai/design).
+เว็บแอปพลิเคชันติดตามภาวะการมีงานทำและการศึกษาต่อของผู้สำเร็จการศึกษาสายอาชีวศึกษา
+รองรับหลายสถานศึกษาในระบบเดียว
 
-A user mocked up designs in HTML/CSS/JS using an AI design tool, then exported this bundle so a coding agent can implement the designs for real.
+ออกแบบให้ชุดโค้ดเดียวทำงานได้ทั้งบน **PHP 5.4 (CentOS 7 — เครื่องให้บริการจริง)**
+และ **PHP 8 (XAMPP — เครื่องทดสอบ)** โดยใช้ฐานข้อมูล **MySQL 5** หรือ **MariaDB 10**
 
-## What you should do — IMPORTANT
+---
 
-**Read `untitled/project/ระบบติดตามศิษย์เก่า.dc.html` in full.** The user had this file open when they triggered the handoff, so it's almost certainly the primary design they want built. Read it top to bottom — don't skim. Then **follow its imports**: open every file it pulls in (shared components, CSS, scripts) so you understand how the pieces fit together before you start implementing.
+## การติดตั้ง
 
-**If anything is ambiguous, ask the user to confirm before you start implementing.** It's much cheaper to clarify scope up front than to build the wrong thing.
+1. วางไฟล์ทั้งหมดไว้ใน document root (เช่น `htdocs/vec.alts` หรือ `/var/www/html/vec.alts`)
+2. ให้สิทธิ์เว็บเซิร์ฟเวอร์เขียนโฟลเดอร์ `config/` และ `storage/`
 
-## About the design files
+   ```bash
+   chmod 775 config storage storage/logs
+   chown -R apache:apache config storage
+   ```
 
-The design medium is **HTML/CSS/JS** — these are prototypes, not production code. Your job is to **recreate them pixel-perfectly** in whatever technology makes sense for the target codebase (React, Vue, native, whatever fits). Match the visual output; don't copy the prototype's internal structure unless it happens to fit.
+3. เปิด `install.php` ผ่านเบราว์เซอร์ แล้วทำตามขั้นตอน
+   (ตรวจสอบระบบ → ตั้งค่าฐานข้อมูล → สร้างผู้ดูแลระบบกลาง)
+4. เมื่อเสร็จแล้ว ควรลบหรือเปลี่ยนชื่อ `install.php` บนเครื่องให้บริการจริง
 
-**Don't render these files in a browser or take screenshots unless the user asks you to.** Everything you need — dimensions, colors, layout rules — is spelled out in the source. Read the HTML and CSS directly; a screenshot won't tell you anything they don't.
+ตัวติดตั้งจะสร้างฐานข้อมูลให้เองถ้ายังไม่มี และสร้างตารางจาก migration
 
-## Bundle contents
+### การติดตั้งซ้ำ
 
-- `untitled/README.md` — this file
-- `untitled/project/` — the `ระบบติดตามผู้สำเร็จการศึกษา` project files (HTML prototypes, assets, components)
+`install.php` เปิดซ้ำได้เสมอ ถ้าระบบติดตั้งไปแล้วจะ **ขอรหัสผ่านผู้ดูแลระบบกลางก่อน**
+จากนั้นจะเข้าสู่หน้าเครื่องมือดูแลระบบ ซึ่งทำสิ่งเหล่านี้ได้
+
+| เครื่องมือ | ใช้เมื่อ |
+| --- | --- |
+| ปรับปรุงฐานข้อมูล | ย้ายโค้ดเวอร์ชันใหม่ขึ้นเครื่อง แล้วมี migration ค้าง |
+| ย้อนกลับชุดล่าสุด | migration ล่าสุดมีปัญหา ต้องถอยกลับ |
+| ตั้งรหัสผ่านใหม่ | ผู้ดูแลลืมรหัสผ่าน |
+| สร้างข้อมูลตัวอย่าง | เตรียมเครื่องทดสอบให้มีข้อมูลครบทุกหน้าจอ |
+| แก้ไขการเชื่อมต่อฐานข้อมูล | ย้ายเซิร์ฟเวอร์ หรือเปลี่ยนรหัสผ่าน MySQL |
+| ติดตั้งใหม่ทั้งหมด | ล้างข้อมูลทั้งหมดแล้วเริ่มใหม่ (ต้องพิมพ์ `REINSTALL` ยืนยัน) |
+
+การรันซ้ำปลอดภัย ตารางที่มีอยู่แล้วจะถูกข้าม ไม่กระทบข้อมูลเดิม
+
+**ถ้าเข้าไม่ได้** เพราะลืมรหัสผ่านหรือเชื่อมต่อฐานข้อมูลไม่ได้
+ให้สร้างไฟล์เปล่าชื่อ `config/install.unlock` บนเซิร์ฟเวอร์ แล้วเปิด `install.php` อีกครั้ง
+(อย่าลืมลบไฟล์นั้นทิ้งเมื่อเสร็จ)
+
+---
+
+## Migration ฐานข้อมูล
+
+ผู้ดูแลระบบกลางจัดการได้จากเมนู **Migration ฐานข้อมูล** ในระบบ
+(หรือจาก `install.php` เมื่อยังเข้าระบบไม่ได้)
+
+หน้าจอนี้แสดงรายการ migration ทั้งหมด สถานะ (ใช้งานแล้ว / รอปรับปรุง / ไม่พบไฟล์)
+เวลาที่รัน batch และ SQL ที่ถูกเรียกใช้จริงในรอบล่าสุด
+
+### การเขียน migration ใหม่
+
+สร้างไฟล์ใน `migrations/` ชื่อ `NNNN_คำอธิบาย.php` เรียงตามเลขนำหน้า
+
+```php
+<?php
+return array(
+    'name' => 'เพิ่มคอลัมน์เก็บผลการติดตาม',
+
+    'up' => function (Schema $s) {
+        $s->addColumn('alumni', 'follow_up_at', 'DATETIME NULL DEFAULT NULL');
+        $s->addIndex('alumni', 'idx_alumni_follow', '`school_id`, `follow_up_at`');
+    },
+
+    'down' => function (Schema $s) {
+        $s->dropIndex('alumni', 'idx_alumni_follow');
+        $s->dropColumn('alumni', 'follow_up_at');
+    },
+);
+```
+
+`Schema` ปิดความต่างระหว่าง MySQL 5 / MySQL 8 / MariaDB 10 ไว้ให้แล้ว
+
+| เมท็อด | หมายเหตุ |
+| --- | --- |
+| `createTable($name, $body)` | ใส่ ENGINE / CHARSET / COLLATE ให้อัตโนมัติ |
+| `addColumn()` `dropColumn()` `modifyColumn()` | ตรวจสอบก่อนว่ามีอยู่แล้วหรือยัง จึงรันซ้ำได้ |
+| `addIndex()` `dropIndex()` | เช่นเดียวกัน |
+| `hasTable()` `hasColumn()` `hasIndex()` | ใช้ `information_schema` ไม่ใช่ `SHOW` |
+| `exec($sql)` `run($sql, $params)` | `{p}` ในคำสั่งจะถูกแทนด้วยคำนำหน้าตาราง |
+
+> MySQL และ MariaDB ไม่รับ placeholder ใน `SHOW ... LIKE ?` เมื่อใช้ prepared statement
+> แบบ native ดังนั้นการตรวจสอบทั้งหมดจึงผ่าน `information_schema`
+
+DDL ของ MySQL ไม่รองรับ transaction แต่ละ migration จึงถูกบันทึกทีละรายการ
+ถ้ารายการใดล้มเหลว ระบบจะหยุดและรายงานว่าค้างอยู่ที่ไฟล์ใด
+
+---
+
+## ความเข้ากันได้ข้ามสภาพแวดล้อม
+
+| เรื่อง | วิธีจัดการ |
+| --- | --- |
+| ฟังก์ชันที่ PHP 5.4 ไม่มี | `app/compat.php` เตรียม polyfill ให้ `password_hash`, `password_verify`, `hash_equals`, `array_column`, `random_bytes`, `str_contains`, `mb_*` |
+| ชุดอักขระ | ตรวจว่ารองรับ `utf8mb4` หรือไม่ ถ้าไม่รองรับใช้ `utf8` |
+| ความยาว index | จำกัด VARCHAR ที่ทำ index ไว้ที่ 191 ตัวอักษร ให้พอดีขีดจำกัด 767 ไบต์ของ InnoDB เดิม |
+| `sql_mode` ต่างกัน | บังคับเป็น `NO_ENGINE_SUBSTITUTION` ทุกครั้งที่เชื่อมต่อ ทำให้ STRICT mode และ `ONLY_FULL_GROUP_BY` ไม่ทำให้ผลต่างกันระหว่างเครื่อง |
+| `TIMESTAMP` | ไม่ใช้ ใช้ `DATETIME` ที่แอปเขียนค่าเอง เพราะ MySQL 5.5 อนุญาต `CURRENT_TIMESTAMP` ได้คอลัมน์เดียวต่อตาราง |
+| `ENUM` | ไม่ใช้ ใช้ `VARCHAR` แล้วตรวจค่าที่ชั้นแอป การเพิ่มสถานะใหม่จึงไม่ต้อง ALTER |
+| ไม่มี `mod_rewrite` | ทุกลิงก์สร้างเป็น `index.php?r=route` ถ้ามี `mod_rewrite` ไฟล์ `.htaccess` จะเปิด URL สวยให้เพิ่ม |
+
+ตรวจสอบเวอร์ชันจริงของเครื่องที่ใช้งานได้ที่เมนู **ตั้งค่าระบบ → สภาพแวดล้อมการทำงาน**
+
+---
+
+## บทบาทผู้ใช้งาน
+
+| บทบาท | เข้าสู่ระบบด้วย | ทำอะไรได้ |
+| --- | --- | --- |
+| ศิษย์เก่า | รหัสนักศึกษา + เลขบัตรประชาชน | กรอกและแก้ไขสถานะของตนเอง ดูประวัติย้อนหลัง |
+| ครูที่ปรึกษา | อีเมล + รหัสผ่าน | ดูรายชื่อในความดูแล กรอกแทน บันทึกผลการติดต่อ |
+| ผู้บริหาร | อีเมล + รหัสผ่าน | แดชบอร์ด รายงานตามแผนก เปรียบเทียบรายปี ส่งออก CSV |
+| ผู้ดูแลสถานศึกษา | อีเมล + รหัสผ่าน | จัดการผู้ใช้ สาขาวิชา นำเข้าศิษย์เก่าจาก CSV |
+| ผู้ดูแลระบบกลาง | อีเมล + รหัสผ่าน | อนุมัติสถานศึกษา ดูผู้ใช้ทั้งระบบ จัดการ Migration |
+
+เลขบัตรประชาชนถูกเก็บเป็น bcrypt hash เท่านั้น ไม่สามารถอ่านย้อนกลับได้
+
+---
+
+## โครงสร้างโปรเจกต์
+
+```
+index.php              front controller (routing ด้วย query string)
+install.php            ตัวติดตั้ง / เครื่องมือดูแลระบบ
+app/
+  compat.php           polyfill สำหรับ PHP 5.4
+  config_io.php        อ่าน/เขียน config, session, หน้า error
+  bootstrap.php        ประกอบระบบทั้งหมด
+  Database.php         เชื่อมต่อ PDO + ตรวจความสามารถของเซิร์ฟเวอร์
+  Schema.php           ตัวช่วยเขียน DDL ข้ามเวอร์ชัน
+  Migrator.php         ตัวรัน migration
+  Repository.php       คำสั่ง SQL ทั้งหมดของระบบ
+  Auth.php             การเข้าสู่ระบบและสิทธิ์
+  Seeder.php           ข้อมูลตัวอย่าง
+  controllers/         ตัวควบคุมแยกตามบทบาท
+migrations/            ไฟล์ migration เรียงตามเลขนำหน้า
+views/                 เทมเพลต PHP ล้วน
+assets/                CSS และ JavaScript
+config/                config.php (ไม่เข้า git) และไฟล์ตัวอย่าง
+storage/logs/          log ของระบบ
+```
+
+---
+
+## นำเข้าข้อมูลศิษย์เก่า
+
+เมนู **นำเข้าข้อมูล** ของผู้ดูแลสถานศึกษา รับไฟล์ CSV เข้ารหัส UTF-8
+
+```csv
+student_code,national_id,title,first_name,last_name,department,level,graduation_year,phone,email,line_id,address
+6231010001,1234567890123,นาย,กิตติพงศ์,ใจดี,ช่างยนต์,ปวส.,2567,0812345678,kit@example.com,,เพชรบูรณ์
+```
+
+คอลัมน์ที่จำเป็นคือ `student_code`, `first_name`, `last_name`
+และ `national_id` สำหรับรายการที่สร้างใหม่
+สาขาวิชาที่ยังไม่มีในระบบจะถูกสร้างให้อัตโนมัติ
+แถวที่รหัสนักศึกษาซ้ำจะถูกข้าม เว้นแต่ติ๊กตัวเลือกให้ปรับปรุงข้อมูลเดิม
+
+ไฟล์ CSV ที่ส่งออกมี BOM ของ UTF-8 กำกับไว้ เพื่อให้ Microsoft Excel เปิดภาษาไทยได้ถูกต้อง
+
+---
+
+## ความปลอดภัย
+
+- รหัสผ่านและเลขบัตรประชาชนเก็บด้วย bcrypt (`password_hash`)
+- ทุกฟอร์มที่เปลี่ยนแปลงข้อมูลมี CSRF token
+- ทุกคำสั่ง SQL ใช้ prepared statement
+- เปลี่ยน session id ใหม่ทุกครั้งที่เข้าสู่ระบบ
+- `config/config.php` ปฏิเสธการเรียกโดยตรงผ่าน HTTP แม้เว็บเซิร์ฟเวอร์จะไม่อ่าน `.htaccess`
+- บันทึกการกระทำสำคัญไว้ในตาราง audit log

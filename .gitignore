@@ -1,0 +1,8 @@
+config/config.php
+config/config.php.tmp
+config/install.unlock
+storage/logs/*.log
+storage/cache/*
+*.local.php
+Thumbs.db
+.DS_Store
