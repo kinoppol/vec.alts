@@ -32,13 +32,18 @@ $cols = 'grid-template-columns:1.6fr 1fr 1fr 1fr';
 <div class="table">
   <div class="table-toolbar">
     <h3 style="font-size:15px;font-weight:700;color:var(--text)">สถานศึกษาในระบบ</h3>
-    <?php if ($summary['pending_schools'] > 0): ?>
-      <a href="<?php echo e(url('centraladmin/requests')); ?>" style="font-size:13px">
-        คำขอสมัครใหม่ <?php echo e($summary['pending_schools']); ?> รายการ →
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+      <?php if ($summary['pending_schools'] > 0): ?>
+        <a href="<?php echo e(url('centraladmin/requests')); ?>" style="font-size:13px">
+          คำขอสมัครใหม่ <?php echo e($summary['pending_schools']); ?> รายการ →
+        </a>
+      <?php else: ?>
+        <span class="cell-dim">ไม่มีคำขอค้างอยู่</span>
+      <?php endif; ?>
+      <a class="btn btn-sm btn-primary" href="<?php echo e(url('centraladmin/school-create')); ?>">
+        + เพิ่มสถานศึกษา
       </a>
-    <?php else: ?>
-      <span class="cell-dim">ไม่มีคำขอค้างอยู่</span>
-    <?php endif; ?>
+    </div>
   </div>
 
   <div class="table-head" style="<?php echo $cols; ?>">

@@ -60,6 +60,7 @@ $routes = array(
 
     'centraladmin'              => array('CentralAdminController', 'index'),
     'centraladmin/requests'     => array('CentralAdminController', 'requests'),
+    'centraladmin/school-create' => array('CentralAdminController', 'schoolCreate'),
     'centraladmin/school-status' => array('CentralAdminController', 'schoolStatus'),
     'centraladmin/users'        => array('CentralAdminController', 'users'),
     'centraladmin/settings'     => array('CentralAdminController', 'settings'),

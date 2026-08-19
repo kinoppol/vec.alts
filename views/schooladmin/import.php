@@ -57,7 +57,7 @@ $result = isset($result) ? $result : null;
 
     <div class="field">
       <label class="label">
-        <input type="checkbox" name="update_existing" value="1">
+        <input type="checkbox" name="update_existing" value="1" aria-label="ปรับปรุงข้อมูลของรหัสนักศึกษาที่มีอยู่แล้ว">
         ปรับปรุงข้อมูลของรหัสนักศึกษาที่มีอยู่แล้ว
       </label>
       <div class="hint">ถ้าไม่เลือก ระบบจะข้ามแถวที่รหัสนักศึกษาซ้ำ</div>

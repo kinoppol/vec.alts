@@ -136,6 +136,15 @@ class Repository
         );
     }
 
+    /**
+     * @param string $name
+     * @return array|null
+     */
+    public function schoolByName($name)
+    {
+        return $this->one('SELECT * FROM `{p}schools` WHERE name = ?', array(trim((string) $name)));
+    }
+
     public function school($id)
     {
         return $this->one('SELECT * FROM `{p}schools` WHERE id = ?', array((int) $id));
@@ -150,14 +159,15 @@ class Repository
         $now = date('Y-m-d H:i:s');
         $this->run(
             'INSERT INTO `{p}schools`'
-            . ' (code, name, province, affiliation, contact_name, contact_phone, contact_email,'
-            . '  status, note, created_at, updated_at)'
-            . ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            . ' (code, name, province, affiliation, rms_base_url, contact_name, contact_phone,'
+            . '  contact_email, status, note, created_at, updated_at)'
+            . ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             array(
                 arr($data, 'code', ''),
                 arr($data, 'name', ''),
                 arr($data, 'province', ''),
                 arr($data, 'affiliation', ''),
+                rtrim(trim((string) arr($data, 'rms_base_url', '')), '/'),
                 arr($data, 'contact_name', ''),
                 arr($data, 'contact_phone', ''),
                 arr($data, 'contact_email', ''),
@@ -167,6 +177,38 @@ class Repository
             )
         );
         return $this->lastId();
+    }
+
+    /**
+     * The RMS address to use for an institution.
+     *
+     * Its own address wins; the system-wide setting is the fallback, so a
+     * single-institution deployment can be configured in one place.
+     *
+     * @param int|null $schoolId
+     * @return string
+     */
+    public function rmsBaseUrlFor($schoolId)
+    {
+        if ($schoolId !== null && (int) $schoolId > 0) {
+            $school = $this->school((int) $schoolId);
+            if ($school !== null && trim((string) arr($school, 'rms_base_url', '')) !== '') {
+                return rtrim(trim($school['rms_base_url']), '/');
+            }
+        }
+        return rtrim(trim((string) $this->setting('rms_base_url', '')), '/');
+    }
+
+    /**
+     * @param int $id
+     * @param string $url
+     */
+    public function setSchoolRmsUrl($id, $url)
+    {
+        $this->run(
+            'UPDATE `{p}schools` SET rms_base_url = ?, updated_at = ? WHERE id = ?',
+            array(rtrim(trim((string) $url), '/'), date('Y-m-d H:i:s'), (int) $id)
+        );
     }
 
     public function setSchoolStatus($id, $status)

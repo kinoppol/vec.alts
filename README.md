@@ -191,7 +191,7 @@ student_code,national_id,title,first_name,last_name,department,level,graduation_
 
 | ส่วน | เก็บที่ | ตัวอย่าง |
 | --- | --- | --- |
-| ที่อยู่หลัก | ฐานข้อมูล (`settings.rms_base_url`) แก้ที่เมนูตั้งค่าระบบ | `http://rms.pbntc.ac.th` |
+| ที่อยู่หลัก | ฐานข้อมูล — `schools.rms_base_url` ของแต่ละสถานศึกษา ถ้าเว้นว่างจะใช้ `settings.rms_base_url` เป็นค่าเริ่มต้น (แก้ที่เมนูตั้งค่าระบบ) | `http://rms.pbntc.ac.th` |
 | พาธ API | โค้ด (`RmsImporter::API_PATH`) | `/api_connection.php?app_name=nutty&data=people` |
 | พาธรูป | โค้ด (`RmsImporter::FILES_PATH`) | `/files/` |
 

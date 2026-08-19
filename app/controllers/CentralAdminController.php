@@ -15,6 +15,133 @@ class CentralAdminController extends Controller
         ));
     }
 
+    /**
+     * Adds an institution directly, without waiting for it to sign itself up.
+     *
+     * This is the only way in once public sign-ups are closed, so it also
+     * offers to create the institution's administrator in the same step —
+     * a school with nobody able to manage it is of no use.
+     */
+    public function schoolCreate()
+    {
+        $this->auth->require_role('centraladmin');
+
+        $old = array();
+        $errors = array();
+
+        if (is_post()) {
+            csrf_verify();
+
+            $old = array(
+                'name'          => post('name'),
+                'code'          => post('code'),
+                'province'      => post('province'),
+                'affiliation'   => post('affiliation'),
+                'rms_base_url'  => rtrim(post('rms_base_url'), '/'),
+                'contact_name'  => post('contact_name'),
+                'contact_phone' => post('contact_phone'),
+                'contact_email' => post('contact_email'),
+                'status'        => post('status', 'active'),
+                'note'          => post('note'),
+                'with_admin'    => post('with_admin') === '1',
+                'admin_name'    => post('admin_name'),
+                'admin_email'   => post('admin_email'),
+            );
+            $adminPassword = post('admin_password');
+
+            if ($old['name'] === '') {
+                $errors['name'] = 'กรุณากรอกชื่อสถานศึกษา';
+            } elseif ($this->repo->schoolByName($old['name']) !== null) {
+                $errors['name'] = 'มีสถานศึกษาชื่อนี้อยู่ในระบบแล้ว';
+            }
+
+            if (!in_array($old['status'], array('active', 'pending', 'suspended'), true)) {
+                $old['status'] = 'active';
+            }
+
+            if ($old['contact_email'] !== '' && !filter_var($old['contact_email'], FILTER_VALIDATE_EMAIL)) {
+                $errors['contact_email'] = 'รูปแบบอีเมลไม่ถูกต้อง';
+            }
+
+            if ($old['rms_base_url'] !== '') {
+                $urlError = Http::validateUrl($old['rms_base_url']);
+                if ($urlError !== '') {
+                    $errors['rms_base_url'] = $urlError;
+                }
+            }
+
+            if ($old['with_admin']) {
+                if ($old['admin_name'] === '') {
+                    $errors['admin_name'] = 'กรุณากรอกชื่อผู้ดูแลสถานศึกษา';
+                }
+                if (!filter_var($old['admin_email'], FILTER_VALIDATE_EMAIL)) {
+                    $errors['admin_email'] = 'รูปแบบอีเมลไม่ถูกต้อง';
+                } elseif ($this->repo->userByEmail($old['admin_email']) !== null) {
+                    $errors['admin_email'] = 'อีเมลนี้ถูกใช้งานแล้วในระบบ';
+                }
+                if (mb_strlen($adminPassword) < 8) {
+                    $errors['admin_password'] = 'รหัสผ่านต้องยาวอย่างน้อย 8 ตัวอักษร';
+                }
+            }
+
+            if (!$errors) {
+                $db = $this->repo->db();
+                $db->beginTransaction();
+                try {
+                    $schoolId = $this->repo->createSchool(array(
+                        'name'          => $old['name'],
+                        'code'          => $old['code'],
+                        'province'      => $old['province'],
+                        'affiliation'   => $old['affiliation'],
+                        'rms_base_url'  => $old['rms_base_url'],
+                        'contact_name'  => $old['contact_name'],
+                        'contact_phone' => $old['contact_phone'],
+                        'contact_email' => $old['contact_email'],
+                        'status'        => $old['status'],
+                        'note'          => $old['note'] !== '' ? $old['note'] : null,
+                    ));
+
+                    if ($old['with_admin']) {
+                        $this->repo->createUser(array(
+                            'school_id' => $schoolId,
+                            'role'      => 'schooladmin',
+                            'email'     => $old['admin_email'],
+                            'password'  => $adminPassword,
+                            'full_name' => $old['admin_name'],
+                            'phone'     => $old['contact_phone'],
+                            // Added by the central admin, so it is usable at once.
+                            'status'    => 'active',
+                        ));
+                    }
+                    $db->commit();
+                } catch (PDOException $e) {
+                    $db->rollBack();
+                    app_log('school create failed: ' . $e->getMessage());
+                    flash('error', 'บันทึกสถานศึกษาไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+                    $this->render('centraladmin/school-create', array(
+                        'title' => 'เพิ่มสถานศึกษา', 'old' => $old, 'errors' => $errors,
+                        'defaultRmsUrl' => $this->repo->setting('rms_base_url', ''),
+                    ));
+                    return;
+                }
+
+                $this->repo->audit('school.create', $old['name'], $old['status'], $this->actor());
+                flash('success', 'เพิ่ม ' . $old['name'] . ' เรียบร้อยแล้ว'
+                    . ($old['with_admin'] ? ' พร้อมบัญชีผู้ดูแลสถานศึกษา' : ''));
+                redirect('centraladmin');
+            }
+
+            flash('error', 'กรุณาตรวจสอบข้อมูลที่กรอกอีกครั้ง');
+        }
+
+        $this->render('centraladmin/school-create', array(
+            'title'         => 'เพิ่มสถานศึกษา',
+            'old'           => $old,
+            'errors'        => $errors,
+            'defaultRmsUrl' => $this->repo->setting('rms_base_url', ''),
+        ));
+    }
+
     public function requests()
     {
         $this->auth->require_role('centraladmin');
@@ -172,7 +299,12 @@ class CentralAdminController extends Controller
     {
         $this->auth->require_role('centraladmin');
 
-        $baseUrl = $this->repo->setting('rms_base_url', '');
+        // Which institution is being transferred into decides where the data
+        // comes from: each one carries its own RMS address, falling back to
+        // the system-wide default when it has none.
+        $selectedSchool = is_post() ? post_int('school_id', 0) : query_int('school_id', 0);
+        $baseUrl = $this->repo->rmsBaseUrlFor($selectedSchool > 0 ? $selectedSchool : null);
+
         $importer = new RmsImporter($this->repo, $baseUrl);
         $summary = null;
         $preview = null;
@@ -181,8 +313,10 @@ class CentralAdminController extends Controller
             csrf_verify();
 
             if (trim($baseUrl) === '') {
-                flash('error', 'ยังไม่ได้กำหนดที่อยู่ระบบ RMS กรุณาตั้งค่าที่เมนูตั้งค่าระบบก่อน');
-                redirect('centraladmin/settings');
+                flash('error', $selectedSchool > 0
+                    ? 'สถานศึกษาที่เลือกยังไม่ได้กำหนดที่อยู่ระบบ RMS และยังไม่มีค่าเริ่มต้นของระบบ'
+                    : 'ยังไม่ได้กำหนดที่อยู่ระบบ RMS กรุณาตั้งค่าที่เมนูตั้งค่าระบบก่อน');
+                redirect(url('centraladmin/import-users', array('school_id' => $selectedSchool)));
             }
 
             $feed = $importer->fetch();
@@ -250,6 +384,8 @@ class CentralAdminController extends Controller
             'feedUrl'    => trim($baseUrl) === '' ? '' : $importer->feedUrl(),
             'apiPath'    => RmsImporter::API_PATH,
             'schools'    => $this->repo->schools('active'),
+            'selectedSchool' => $selectedSchool,
+            'defaultRmsUrl'  => $this->repo->setting('rms_base_url', ''),
             'summary'    => $summary,
             'preview'    => $preview,
             'lastImport' => $this->repo->setting('rms_last_import_at', ''),

@@ -20,18 +20,66 @@ unset($roles['centraladmin']);
   โอนซ้ำได้ ระบบจะปรับปรุงคนเดิมแทนการสร้างซ้ำ
 </p>
 
+<?php
+// Which institution the source address came from, for the panel below.
+$selectedName = '';
+$selectedOwnUrl = '';
+foreach ($schools as $s) {
+    if ((int) $s['id'] === (int) $selectedSchool) {
+        $selectedName = $s['name'];
+        $selectedOwnUrl = trim((string) arr($s, 'rms_base_url', ''));
+    }
+}
+?>
+
+<div class="card" style="margin-bottom:20px">
+  <form method="get" action="<?php echo e(url()); ?>" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+    <input type="hidden" name="r" value="centraladmin/import-users">
+    <div style="flex:1;min-width:240px">
+      <label class="label" for="school_pick">สถานศึกษาที่จะโอนข้อมูลเข้า</label>
+      <select class="input" id="school_pick" name="school_id" data-auto-submit>
+        <option value="0">— ไม่สังกัดสถานศึกษา (ใช้ที่อยู่เริ่มต้นของระบบ) —</option>
+        <?php foreach ($schools as $s): ?>
+          <option value="<?php echo e($s['id']); ?>"
+                  <?php echo (int) $selectedSchool === (int) $s['id'] ? 'selected' : ''; ?>>
+            <?php echo e($s['name']); ?>
+          </option>
+        <?php endforeach; ?>
+      </select>
+      <div class="hint">แหล่งข้อมูลจะเปลี่ยนตามที่อยู่ RMS ของสถานศึกษาที่เลือก</div>
+    </div>
+    <button type="submit" class="btn">เปลี่ยน</button>
+  </form>
+</div>
+
 <?php if (trim($baseUrl) === ''): ?>
   <div class="alert alert-warn">
-    ยังไม่ได้กำหนดที่อยู่ระบบ RMS —
-    <a href="<?php echo e(url('centraladmin/settings')); ?>">ไปที่เมนูตั้งค่าระบบ</a>
-    เพื่อกรอกที่อยู่ก่อน
+    <?php if ($selectedSchool > 0): ?>
+      <b><?php echo e($selectedName); ?></b> ยังไม่ได้กำหนดที่อยู่ระบบ RMS
+      และระบบก็ยังไม่มีค่าเริ่มต้น — กำหนดได้ที่ข้อมูลของสถานศึกษา หรือที่
+      <a href="<?php echo e(url('centraladmin/settings')); ?>">เมนูตั้งค่าระบบ</a>
+    <?php else: ?>
+      ยังไม่ได้กำหนดที่อยู่ระบบ RMS —
+      <a href="<?php echo e(url('centraladmin/settings')); ?>">ไปที่เมนูตั้งค่าระบบ</a>
+      เพื่อกรอกที่อยู่ก่อน
+    <?php endif; ?>
   </div>
 <?php else: ?>
 
   <div class="card" style="margin-bottom:20px">
     <dl class="kv">
       <dt>แหล่งข้อมูล</dt><dd style="word-break:break-all"><?php echo e($feedUrl); ?></dd>
-      <dt>ที่อยู่หลัก</dt><dd><?php echo e($baseUrl); ?> <span style="font-weight:400;color:var(--text-dim)">(แก้ไขได้ที่เมนูตั้งค่าระบบ)</span></dd>
+      <dt>ที่อยู่หลัก</dt>
+      <dd>
+        <?php echo e($baseUrl); ?>
+        <span style="font-weight:400;color:var(--text-dim)">
+          <?php if ($selectedSchool > 0 && $selectedOwnUrl !== ''): ?>
+            (ที่อยู่ของ<?php echo e($selectedName); ?>)
+          <?php else: ?>
+            (ค่าเริ่มต้นของระบบ — แก้ไขได้ที่เมนูตั้งค่าระบบ)
+          <?php endif; ?>
+        </span>
+      </dd>
       <dt>พาธ API</dt><dd style="font-weight:400"><code><?php echo e($apiPath); ?></code> <span style="color:var(--text-dim)">(กำหนดไว้ในโปรแกรม)</span></dd>
       <dt>โอนครั้งล่าสุด</dt><dd><?php echo e($lastImport !== '' ? thai_date($lastImport) : 'ยังไม่เคยโอน'); ?></dd>
     </dl>
@@ -113,16 +161,16 @@ unset($roles['centraladmin']);
     <form method="post" action="<?php echo e(url('centraladmin/import-users')); ?>">
       <?php echo csrf_field(); ?>
 
+      <!-- The institution is chosen above, because it also decides the source. -->
+      <input type="hidden" name="school_id" value="<?php echo e($selectedSchool); ?>">
+
       <div class="grid-2">
         <div class="field">
-          <label class="label" for="school_id">สังกัดสถานศึกษา</label>
-          <select class="input" id="school_id" name="school_id">
-            <option value="0">— ไม่สังกัดสถานศึกษา —</option>
-            <?php foreach ($schools as $school): ?>
-              <option value="<?php echo e($school['id']); ?>"><?php echo e($school['name']); ?></option>
-            <?php endforeach; ?>
-          </select>
-          <div class="hint">ใช้กับผู้ใช้ที่เพิ่มใหม่เท่านั้น</div>
+          <label class="label">สังกัดสถานศึกษา</label>
+          <div class="input" style="background:var(--surface-2);border-style:dashed">
+            <?php echo e($selectedSchool > 0 ? $selectedName : 'ไม่สังกัดสถานศึกษา'); ?>
+          </div>
+          <div class="hint">เลือกได้จากช่องด้านบน · ใช้กับผู้ใช้ที่เพิ่มใหม่เท่านั้น</div>
         </div>
 
         <div class="field">
@@ -140,7 +188,7 @@ unset($roles['centraladmin']);
 
       <div class="field">
         <label class="label">
-          <input type="checkbox" name="avatars" value="1" checked>
+          <input type="checkbox" name="avatars" value="1" aria-label="ดาวน์โหลดรูปโปรไฟล์จากระบบ RMS" checked>
           ดาวน์โหลดรูปโปรไฟล์จากระบบ RMS
         </label>
         <div class="hint">
@@ -151,7 +199,7 @@ unset($roles['centraladmin']);
 
       <div class="field">
         <label class="label">
-          <input type="checkbox" name="update_passwords" value="1">
+          <input type="checkbox" name="update_passwords" value="1" aria-label="ตั้งรหัสผ่านของผู้ใช้เดิมใหม่ตามค่าใน RMS">
           ตั้งรหัสผ่านของผู้ใช้เดิมใหม่ตามค่าใน RMS
         </label>
         <div class="hint">
@@ -174,6 +222,7 @@ unset($roles['centraladmin']);
       </p>
       <form method="post" action="<?php echo e(url('centraladmin/import-users')); ?>">
         <?php echo csrf_field(); ?>
+        <input type="hidden" name="school_id" value="<?php echo e($selectedSchool); ?>">
         <button type="submit" name="action" value="avatars" class="btn">ดาวน์โหลดรูปที่เหลือ</button>
       </form>
     <?php endif; ?>

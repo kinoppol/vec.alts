@@ -29,7 +29,7 @@
 
     <div class="field">
       <label class="label">
-        <input type="checkbox" name="allow_self_update" value="1"
+        <input type="checkbox" name="allow_self_update" value="1" aria-label="เปิดให้ศิษย์เก่าแก้ไขข้อมูลของตนเอง"
                <?php echo arr($settings, 'allow_self_update', '1') === '1' ? 'checked' : ''; ?>>
         เปิดให้ศิษย์เก่าแก้ไขข้อมูลของตนเอง
       </label>
@@ -38,7 +38,7 @@
 
     <div class="field">
       <label class="label">
-        <input type="checkbox" name="allow_school_register" value="1"
+        <input type="checkbox" name="allow_school_register" value="1" aria-label="เปิดให้สถานศึกษาสมัครใช้งานเองผ่านหน้าเว็บ"
                <?php echo arr($settings, 'allow_school_register', '1') === '1' ? 'checked' : ''; ?>>
         เปิดให้สถานศึกษาอื่นสมัครเข้าใช้งานเอง
       </label>
@@ -52,13 +52,13 @@
 
     <h3 style="font-size:15px;font-weight:700;margin-bottom:6px">แหล่งข้อมูลผู้ใช้ภายนอก (RMS)</h3>
     <p class="hint" style="margin:0 0 14px">
-      กรอกเฉพาะที่อยู่หลักของระบบ RMS เท่านั้น ส่วนพาธของ API
-      ระบบกำหนดไว้ในโปรแกรมแล้ว การเปลี่ยนค่านี้ใช้เมื่อย้ายเซิร์ฟเวอร์
-      หรือเปลี่ยนไปดึงข้อมูลจากสถานศึกษาอื่น
+      แต่ละสถานศึกษากำหนดที่อยู่ RMS ของตนเองได้ในข้อมูลสถานศึกษา
+      ค่าตรงนี้เป็น <b>ค่าเริ่มต้น</b> ที่ใช้เมื่อสถานศึกษานั้นยังไม่ได้กำหนดไว้
+      กรอกเฉพาะที่อยู่หลัก ส่วนพาธของ API ระบบกำหนดไว้ในโปรแกรมแล้ว
     </p>
 
     <div class="field">
-      <label class="label" for="rms_base_url">ที่อยู่ระบบ RMS</label>
+      <label class="label" for="rms_base_url">ที่อยู่ระบบ RMS (ค่าเริ่มต้น)</label>
       <input class="input" type="url" id="rms_base_url" name="rms_base_url"
              placeholder="http://rms.pbntc.ac.th"
              value="<?php echo e(arr($settings, 'rms_base_url', '')); ?>">
