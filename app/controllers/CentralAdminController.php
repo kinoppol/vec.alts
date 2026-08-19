@@ -370,6 +370,48 @@ class CentralAdminController extends Controller
         ));
     }
 
+    /**
+     * Inspection screen for the people transferred in: search, filter and page
+     * through them to see what actually landed.
+     */
+    public function students()
+    {
+        $this->auth->require_role('centraladmin');
+
+        $schoolId = query_int('school_id', 0);
+        $page = max(1, query_int('page', 1));
+
+        $filters = array(
+            'school_id'   => $schoolId,
+            'search'      => query('q'),
+            'level'       => query('level'),
+            'group_code'  => query('group'),
+            'study_state' => query('state'),
+            'limit'       => self::PER_PAGE,
+            'offset'      => ($page - 1) * self::PER_PAGE,
+        );
+
+        $total = $this->repo->studentRowsCount($filters);
+        $pages = (int) ceil($total / self::PER_PAGE);
+        if ($page > $pages && $pages > 0) {
+            $page = $pages;
+            $filters['offset'] = ($page - 1) * self::PER_PAGE;
+        }
+
+        $this->render('centraladmin/students', array(
+            'title'    => 'ตรวจสอบข้อมูลผู้เรียน',
+            'rows'     => $this->repo->studentRows($filters),
+            'schools'  => $this->repo->schools(),
+            'groups'   => $this->repo->studentGroups($schoolId),
+            'overview' => $schoolId > 0 ? $this->repo->studentOverview($schoolId) : null,
+            'filters'  => $filters,
+            'total'    => $total,
+            'page'     => $page,
+            'pages'    => $pages,
+            'perPage'  => self::PER_PAGE,
+        ));
+    }
+
     public function settings()
     {
         $this->auth->require_role('centraladmin');

@@ -358,6 +358,12 @@ textarea.input { min-height: 80px; resize: vertical; }
 /* ------------------------------------------------------------- app shell */
 
 .shell { min-height: 100vh; background: var(--bg); display: grid; grid-template-columns: 248px 1fr; }
+
+/* Grid items default to min-width:auto, so anything wider than its track —
+   a long menu row, a wide table — stretches the whole layout and makes the
+   page scroll sideways. Content that is too wide has to scroll inside its
+   own box instead. */
+.shell > * { min-width: 0; }
 .sidebar {
   background: var(--surface); border-right: 1px solid var(--border);
   padding: 22px 16px; display: flex; flex-direction: column; gap: 4px;
@@ -599,14 +605,69 @@ textarea.input { min-height: 80px; resize: vertical; }
   .hero { grid-template-columns: 1fr; gap: 32px; padding-top: 48px; }
   .hero h1 { font-size: 36px; }
   .grid-4 { grid-template-columns: repeat(2, 1fr); }
+}
+
+/*
+ * Narrowing the window shrinks the sidebar rather than dropping it above the
+ * page. There is still room for a side column well below 1024px, and turning
+ * it into a stacked block pushed the actual content a screenful down.
+ */
+@media (max-width: 1180px) and (min-width: 761px) {
+  .shell { grid-template-columns: 200px 1fr; }
+  .sidebar { padding: 18px 10px; }
+  .sidebar-head { padding: 4px 6px 16px; gap: 8px; }
+  .sidebar-org { font-size: 12px; }
+  .nav-item { padding: 10px; font-size: 13px; }
+  .main { padding: 26px 24px; }
+}
+
+@media (max-width: 980px) and (min-width: 761px) {
+  .shell { grid-template-columns: 168px 1fr; }
+  .sidebar { padding: 16px 8px; }
+  /* The institution name would wrap to four lines at this width; the logo
+     and the role are enough to say whose workspace this is. */
+  .sidebar-org { display: none; }
+  .nav-item { padding: 9px 10px; font-size: 12.5px; }
+  .main { padding: 24px 20px; }
+}
+
+/*
+ * Phones: a single compact strip across the top. The links scroll sideways
+ * inside it, so the bar stays one row tall however many menu entries a role
+ * has, instead of growing downwards.
+ */
+@media (max-width: 760px) {
   .shell { grid-template-columns: 1fr; }
   .sidebar {
+    position: sticky; top: 0; z-index: 40;
+    flex-direction: row; align-items: center; gap: 10px;
+    padding: 8px 12px;
     border-right: none; border-bottom: 1px solid var(--border);
-    flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px;
+    background: var(--surface);
   }
-  .sidebar-head { padding: 6px 8px; width: 100%; }
-  .sidebar-foot { margin: 0 0 0 auto; flex-direction: row; padding-top: 0; }
-  .main { padding: 24px 20px; }
+  .sidebar-head { padding: 0; width: auto; flex-shrink: 0; }
+  .sidebar-head > div:last-child { display: none; }
+
+  .sidebar nav {
+    flex: 1; min-width: 0;
+    display: flex; gap: 6px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  .sidebar nav .nav-item {
+    white-space: nowrap;
+    padding: 8px 12px; font-size: 13px;
+  }
+
+  .sidebar-foot {
+    margin: 0; padding-top: 0; flex-shrink: 0;
+    flex-direction: row; align-items: center; gap: 6px;
+  }
+  .sidebar-foot .btn { background: var(--surface); justify-content: center; padding: 8px 10px; }
+  .sidebar-foot .btn-block { width: auto; }
+
+  .main { padding: 20px 16px; }
 }
 
 @media (max-width: 760px) {

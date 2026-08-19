@@ -18,7 +18,7 @@
     <a class="brand" href="<?php echo e(url('home')); ?>">
       <div class="logo">ศ</div>
       <div>
-        <div class="brand-name">ระบบติดตามศิษย์เก่า</div>
+        <div class="brand-name"><?php echo e($appName); ?></div>
         <div class="brand-sub">VOCATIONAL ALUMNI TRACKING</div>
       </div>
     </a>

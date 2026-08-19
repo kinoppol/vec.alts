@@ -856,6 +856,150 @@ class Repository
     }
 
     /**
+     * Conditions shared by studentRows() and studentRowsCount().
+     *
+     * @param array $filters school_id, search, level, group_code, study_state
+     * @param array $params filled with the bound values
+     * @return string
+     */
+    private function studentWhere($filters, &$params)
+    {
+        $where = array('1 = 1');
+        $params = array();
+
+        $schoolId = (int) arr($filters, 'school_id', 0);
+        if ($schoolId > 0) {
+            $where[] = 'a.school_id = ?';
+            $params[] = $schoolId;
+        }
+
+        $state = (string) arr($filters, 'study_state', '');
+        $states = study_states();
+        if (isset($states[$state])) {
+            $where[] = 'a.study_state = ?';
+            $params[] = $state;
+        }
+
+        $level = trim((string) arr($filters, 'level', ''));
+        if ($level !== '') {
+            $where[] = 'a.level = ?';
+            $params[] = $level;
+        }
+
+        $group = trim((string) arr($filters, 'group_code', ''));
+        if ($group !== '') {
+            $where[] = 'a.group_code = ?';
+            $params[] = $group;
+        }
+
+        $search = trim((string) arr($filters, 'search', ''));
+        if ($search !== '') {
+            $where[] = '(a.student_code LIKE ? OR a.first_name LIKE ? OR a.last_name LIKE ?'
+                . ' OR a.group_name LIKE ? OR a.major_name LIKE ?)';
+            $like = '%' . $search . '%';
+            for ($i = 0; $i < 5; $i++) {
+                $params[] = $like;
+            }
+        }
+
+        return implode(' AND ', $where);
+    }
+
+    /**
+     * Students and graduates for the inspection screen, one page at a time.
+     *
+     * @param array $filters plus limit and offset
+     * @return array
+     */
+    public function studentRows($filters = array())
+    {
+        $params = array();
+        $where = $this->studentWhere($filters, $params);
+
+        $limit = (int) arr($filters, 'limit', 50);
+        $offset = max(0, (int) arr($filters, 'offset', 0));
+        if ($limit < 1) {
+            $limit = 50;
+        }
+
+        return $this->all(
+            'SELECT a.*, s.name AS school_name, d.name AS department_name'
+            . ' FROM `{p}alumni` a'
+            . ' LEFT JOIN `{p}schools` s ON s.id = a.school_id'
+            . ' LEFT JOIN `{p}departments` d ON d.id = a.department_id'
+            . ' WHERE ' . $where
+            . ' ORDER BY a.group_code ASC, a.student_code ASC'
+            . ' LIMIT ' . $limit . ' OFFSET ' . $offset,
+            $params
+        );
+    }
+
+    /**
+     * @param array $filters
+     * @return int
+     */
+    public function studentRowsCount($filters = array())
+    {
+        $params = array();
+        $where = $this->studentWhere($filters, $params);
+        return (int) $this->scalar(
+            'SELECT COUNT(*) FROM `{p}alumni` a WHERE ' . $where,
+            $params
+        );
+    }
+
+    /**
+     * Distinct class groups of one institution, for the filter list.
+     *
+     * @param int $schoolId
+     * @return array
+     */
+    public function studentGroups($schoolId)
+    {
+        if ((int) $schoolId < 1) {
+            return array();
+        }
+        return $this->all(
+            'SELECT group_code, MAX(group_name) AS group_name, COUNT(*) AS c'
+            . ' FROM `{p}alumni` WHERE school_id = ? AND group_code <> ""'
+            . ' GROUP BY group_code ORDER BY group_code ASC',
+            array((int) $schoolId)
+        );
+    }
+
+    /**
+     * Headline counts for the inspection screen.
+     *
+     * @param int $schoolId
+     * @return array
+     */
+    public function studentOverview($schoolId)
+    {
+        $params = array();
+        $where = 'school_id = ?';
+        $params[] = (int) $schoolId;
+
+        return array(
+            'studying'  => (int) $this->scalar(
+                'SELECT COUNT(*) FROM `{p}alumni` WHERE ' . $where . ' AND study_state = ?',
+                array((int) $schoolId, 'studying')
+            ),
+            'graduated' => (int) $this->scalar(
+                'SELECT COUNT(*) FROM `{p}alumni` WHERE ' . $where . ' AND study_state = ?',
+                array((int) $schoolId, 'graduated')
+            ),
+            'from_rms'  => (int) $this->scalar(
+                'SELECT COUNT(*) FROM `{p}alumni` WHERE ' . $where . ' AND external_source = ?',
+                array((int) $schoolId, 'rms')
+            ),
+            'no_login'  => (int) $this->scalar(
+                'SELECT COUNT(*) FROM `{p}alumni` WHERE ' . $where . ' AND national_id_hash = ""',
+                $params
+            ),
+        );
+    }
+
+    /**
      * Departments of one institution keyed by lower-cased name, for matching
      * an incoming major without a query per row.
      *

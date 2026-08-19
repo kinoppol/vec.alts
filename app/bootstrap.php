@@ -9,7 +9,7 @@
 
 define('VEC_ROOT', dirname(__DIR__));
 define('VEC_APP', VEC_ROOT . '/app');
-define('VEC_VERSION', '1.2.0');
+define('VEC_VERSION', '1.2.1');
 
 // Report everything internally; whether it reaches the browser is decided
 // once the config is loaded. E_STRICT folds into E_ALL from PHP 5.4 onwards.
@@ -83,4 +83,17 @@ $view = new View(VEC_ROOT . '/views');
 $view->share('config', $config);
 $view->share('auth', $auth);
 $view->share('repo', $repo);
-$view->share('appName', $config['app']['name']);
+/*
+ * The name shown around the site comes from the setting the central admin
+ * edits, not from config.php. The config value stays as the fallback for a
+ * database that has no setting yet, and the read is guarded because this runs
+ * before the schema check — on a database still waiting for its migrations the
+ * settings table may not be there at all.
+ */
+$siteTitle = '';
+try {
+    $siteTitle = (string) $repo->setting('site_title', '');
+} catch (PDOException $e) {
+    $siteTitle = '';
+}
+$view->share('appName', $siteTitle !== '' ? $siteTitle : $config['app']['name']);
