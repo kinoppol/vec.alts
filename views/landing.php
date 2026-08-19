@@ -36,7 +36,9 @@ $stats = array(
        พร้อมแดชบอร์ดภาพรวมสำหรับผู้บริหาร</p>
     <div class="hero-actions">
       <a class="btn btn-primary btn-lg" href="<?php echo e(url('login')); ?>">เข้าสู่ระบบสำหรับศิษย์เก่า</a>
-      <a class="btn btn-lg" href="<?php echo e(url('register')); ?>">สมัครสถานศึกษา →</a>
+      <?php if ($repo->registrationOpen()): ?>
+        <a class="btn btn-lg" href="<?php echo e(url('register')); ?>">สมัครสถานศึกษา →</a>
+      <?php endif; ?>
     </div>
     <?php if ($summary['active_schools'] > 0): ?>
       <div class="hero-note">

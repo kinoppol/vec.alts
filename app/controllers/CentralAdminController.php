@@ -129,6 +129,7 @@ class CentralAdminController extends Controller
             }
 
             $this->repo->setSetting('allow_self_update', post('allow_self_update') === '1' ? '1' : '0');
+            $this->repo->setSetting('allow_school_register', post('allow_school_register') === '1' ? '1' : '0');
 
             $this->repo->audit('settings.update', 'system', null, $this->actor());
             flash('success', 'บันทึกการตั้งค่าเรียบร้อยแล้ว');
@@ -141,6 +142,7 @@ class CentralAdminController extends Controller
                 'site_title'        => $this->repo->setting('site_title', 'ระบบติดตามศิษย์เก่า'),
                 'survey_year'       => $this->repo->surveyYear(),
                 'allow_self_update' => $this->repo->setting('allow_self_update', '1'),
+                'allow_school_register' => $this->repo->setting('allow_school_register', '1'),
             ),
             'env'      => $this->environment(),
         ));

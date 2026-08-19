@@ -35,7 +35,9 @@
         <a class="btn" href="<?php echo e(url($auth->homeRoute())); ?>">เข้าสู่พื้นที่ทำงาน</a>
       <?php else: ?>
         <a class="btn" href="<?php echo e(url('login')); ?>">เข้าสู่ระบบ</a>
-        <a class="btn btn-primary" href="<?php echo e(url('register')); ?>">สมัครใช้งาน</a>
+        <?php if ($repo->registrationOpen()): ?>
+          <a class="btn btn-primary" href="<?php echo e(url('register')); ?>">สมัครใช้งาน</a>
+        <?php endif; ?>
       <?php endif; ?>
     </div>
   </div>

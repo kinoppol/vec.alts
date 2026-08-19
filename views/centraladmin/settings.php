@@ -36,6 +36,18 @@
       <div class="hint">ถ้าปิด จะกรอกได้เฉพาะครูที่ปรึกษาและผู้ดูแลสถานศึกษา</div>
     </div>
 
+    <div class="field">
+      <label class="label">
+        <input type="checkbox" name="allow_school_register" value="1"
+               <?php echo arr($settings, 'allow_school_register', '1') === '1' ? 'checked' : ''; ?>>
+        เปิดให้สถานศึกษาอื่นสมัครเข้าใช้งานเอง
+      </label>
+      <div class="hint">
+        ถ้าปิด หน้าสมัครใช้งานจะแจ้งว่าปิดรับสมัคร และลิงก์สมัครจะถูกซ่อนทั้งเว็บ
+        สถานศึกษาที่ใช้งานอยู่แล้วไม่ได้รับผลกระทบ
+      </div>
+    </div>
+
     <button type="submit" class="btn btn-primary">บันทึกการตั้งค่า</button>
   </form>
 </div>

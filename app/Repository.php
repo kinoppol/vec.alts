@@ -93,6 +93,20 @@ class Repository
         return $year > 0 ? $year : current_academic_year();
     }
 
+    /**
+     * Whether an institution may sign itself up from the public site.
+     *
+     * The central administrator closes this once every institution that
+     * belongs in the system is in it, so the requests screen stops filling up
+     * with sign-ups nobody is expecting.
+     *
+     * @return bool
+     */
+    public function registrationOpen()
+    {
+        return $this->setting('allow_school_register', '1') === '1';
+    }
+
     // -------------------------------------------------------------- schools
 
     public function schools($status = null)

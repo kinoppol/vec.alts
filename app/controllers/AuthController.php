@@ -77,6 +77,15 @@ class AuthController extends Controller
             redirect($this->auth->homeRoute());
         }
 
+        // Checked before the POST branch, so closing sign-ups also refuses a
+        // form that was already open in a tab when the switch was thrown.
+        if (!$this->repo->registrationOpen()) {
+            $this->renderBlank('auth/register-closed', array(
+                'title' => 'ปิดรับสมัครสถานศึกษา',
+            ));
+            return;
+        }
+
         $old = array();
         $errors = array();
 

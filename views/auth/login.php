@@ -36,9 +36,13 @@ $kinds = array(
       <p>กรอกข้อมูลของคุณเพื่อช่วยพัฒนาการเรียนการสอนให้รุ่นน้อง
          และช่วยให้สถานศึกษาติดตามผลได้อย่างแม่นยำ</p>
     </div>
-    <div style="font-size:13px;opacity:.8">
-      ต้องการเพิ่มสถานศึกษา? <a href="<?php echo e(url('register')); ?>">สมัครใช้งาน</a>
-    </div>
+    <?php if ($repo->registrationOpen()): ?>
+      <div style="font-size:13px;opacity:.8">
+        ต้องการเพิ่มสถานศึกษา? <a href="<?php echo e(url('register')); ?>">สมัครใช้งาน</a>
+      </div>
+    <?php else: ?>
+      <div></div>
+    <?php endif; ?>
   </div>
 
   <div class="auth-main">
@@ -141,9 +145,11 @@ $kinds = array(
 
       <?php endif; ?>
 
-      <p style="text-align:center;font-size:13px;color:var(--text-dim);margin-top:18px">
-        ยังไม่มีบัญชีสถานศึกษา? <a href="<?php echo e(url('register')); ?>">สมัครใช้งาน</a>
-      </p>
+      <?php if ($repo->registrationOpen()): ?>
+        <p style="text-align:center;font-size:13px;color:var(--text-dim);margin-top:18px">
+          ยังไม่มีบัญชีสถานศึกษา? <a href="<?php echo e(url('register')); ?>">สมัครใช้งาน</a>
+        </p>
+      <?php endif; ?>
 
     </div>
   </div>
