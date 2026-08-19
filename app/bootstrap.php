@@ -26,6 +26,8 @@ require VEC_APP . '/Migrator.php';
 require VEC_APP . '/Auth.php';
 require VEC_APP . '/View.php';
 require VEC_APP . '/Repository.php';
+require VEC_APP . '/Http.php';
+require VEC_APP . '/RmsImporter.php';
 
 // Before any output, including the redirect below and the fatal-error pages.
 vec_send_charset();

@@ -13,6 +13,29 @@
 <h1 class="page-title">โปรไฟล์ของฉัน</h1>
 <p class="page-sub">แก้ไขชื่อและช่องทางติดต่อของบัญชีคุณเอง</p>
 
+<div class="profile-card" style="max-width:520px">
+  <?php echo $this->partial('layout/avatar', array(
+      'name' => arr($user, 'full_name', ''),
+      'path' => arr($user, 'avatar_path', ''),
+  )); ?>
+  <div>
+    <div style="font-weight:700;color:var(--text);font-size:16px">
+      <?php echo e(arr($user, 'full_name', '')); ?>
+    </div>
+    <div style="font-size:13px;color:var(--text-dim)">
+      <?php echo e(role_label(arr($user, 'role', ''))); ?>
+      <?php if (arr($user, 'username', '') !== '' && arr($user, 'username') !== null): ?>
+        · ชื่อผู้ใช้ <?php echo e($user['username']); ?>
+      <?php endif; ?>
+    </div>
+    <?php if (arr($user, 'avatar_path', '') === ''): ?>
+      <div class="hint" style="margin-top:4px">
+        ยังไม่มีรูปโปรไฟล์ ระบบจึงแสดงเป็นชื่อย่อ
+      </div>
+    <?php endif; ?>
+  </div>
+</div>
+
 <div class="card card-lg" style="max-width:520px;margin-bottom:22px">
   <form method="post" action="<?php echo e(url('account/profile')); ?>">
     <?php echo csrf_field(); ?>

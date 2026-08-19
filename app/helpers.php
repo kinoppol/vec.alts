@@ -444,6 +444,7 @@ function app_menu($role)
                 array('route' => 'centraladmin', 'label' => 'สถานศึกษาทั้งหมด'),
                 array('route' => 'centraladmin/requests', 'label' => 'คำขอสมัคร'),
                 array('route' => 'centraladmin/users', 'label' => 'ผู้ใช้งานระบบ'),
+                array('route' => 'centraladmin/import-users', 'label' => 'โอนข้อมูลผู้ใช้'),
                 array('route' => 'admin/migrations', 'label' => 'Migration ฐานข้อมูล'),
                 array('route' => 'centraladmin/settings', 'label' => 'ตั้งค่าระบบ'),
             );
@@ -460,6 +461,42 @@ function app_menu($role)
         $menu[] = array('route' => 'account/password', 'label' => 'เปลี่ยนรหัสผ่าน');
     }
     return $menu;
+}
+
+/**
+ * First character of a name, used when there is no profile picture.
+ *
+ * @param string $name
+ * @return string
+ */
+function initials($name)
+{
+    $name = trim((string) $name);
+    if ($name === '') {
+        return '?';
+    }
+    // Thai names carry no useful "surname initial", so one character is it.
+    return mb_substr($name, 0, 1);
+}
+
+/**
+ * Public URL of a stored profile picture.
+ *
+ * @param string $path filename recorded in users.avatar_path
+ * @return string '' when the person has no picture
+ */
+function avatar_url($path)
+{
+    $path = trim((string) $path);
+    if ($path === '') {
+        return '';
+    }
+    // Only ever a bare filename; anything else is not ours to serve.
+    $path = basename($path);
+    if (!is_file(VEC_ROOT . '/uploads/avatars/' . $path)) {
+        return '';
+    }
+    return base_url() . '/uploads/avatars/' . rawurlencode($path);
 }
 
 /**

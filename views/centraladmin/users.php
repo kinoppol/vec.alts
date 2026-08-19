@@ -49,9 +49,16 @@ $cols = 'grid-template-columns:1.5fr 1.3fr 1fr .9fr .8fr';
       }
       ?>
       <div class="table-row" style="<?php echo $cols; ?>">
-        <div>
-          <div class="cell-title"><?php echo e($user['full_name']); ?></div>
-          <div class="cell-sub"><?php echo e($user['email']); ?></div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <?php echo $this->partial('layout/avatar', array(
+              'name' => $user['full_name'],
+              'path' => arr($user, 'avatar_path', ''),
+              'size' => 38,
+          )); ?>
+          <div>
+            <div class="cell-title"><?php echo e($user['full_name']); ?></div>
+            <div class="cell-sub"><?php echo e($user['email'] !== null && $user['email'] !== '' ? $user['email'] : 'ชื่อผู้ใช้: ' . arr($user, 'username', '—')); ?></div>
+          </div>
         </div>
         <span class="cell-dim"><?php echo e($user['school_name'] !== null ? $user['school_name'] : 'ระบบกลาง'); ?></span>
         <span class="cell-dim"><?php echo e(role_label($user['role'])); ?></span>

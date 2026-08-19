@@ -248,6 +248,143 @@ class Repository
         return $this->lastId();
     }
 
+    /**
+     * @param string $username
+     * @return array|null
+     */
+    public function userByUsername($username)
+    {
+        if ((string) $username === '') {
+            return null;
+        }
+        return $this->one('SELECT * FROM `{p}users` WHERE username = ?', array($username));
+    }
+
+    /**
+     * @param string $source
+     * @param string $externalId
+     * @return array|null
+     */
+    public function userByExternal($source, $externalId)
+    {
+        return $this->one(
+            'SELECT * FROM `{p}users` WHERE external_source = ? AND external_id = ?',
+            array($source, $externalId)
+        );
+    }
+
+    /**
+     * Creates or refreshes a user transferred from an external system.
+     *
+     * The row is located by its identifier in the source system, then by
+     * username, then by email, so a repeat transfer refreshes the same person
+     * and a person already entered by hand is adopted rather than duplicated.
+     *
+     * created_at is written once and never touched again, so a repeat transfer
+     * does not rewrite when the account first appeared. role and school_id are
+     * likewise only set on creation: an administrator may have changed them
+     * here afterwards, and the source system does not know about them.
+     *
+     * @param array $data
+     * @param bool $updatePassword whether an existing row's password is replaced
+     * @return array array('id'=>int, 'created'=>bool, 'avatar_path'=>string)
+     */
+    public function upsertImportedUser($data, $updatePassword = false)
+    {
+        $now = date('Y-m-d H:i:s');
+        $source = arr($data, 'external_source', '');
+        $externalId = arr($data, 'external_id', '');
+        $username = arr($data, 'username', '');
+        $email = arr($data, 'email');
+
+        $existing = $this->userByExternal($source, $externalId);
+        if ($existing === null) {
+            $existing = $this->userByUsername($username);
+        }
+        if ($existing === null && $email !== null && $email !== '') {
+            $existing = $this->userByEmail($email);
+        }
+
+        if ($existing !== null) {
+            $sql = 'UPDATE `{p}users` SET full_name = ?, email = ?, phone = ?,'
+                . ' username = ?, external_source = ?, external_id = ?, updated_at = ?';
+            $params = array(
+                arr($data, 'full_name', ''),
+                $email,
+                arr($data, 'phone', ''),
+                $username === '' ? null : $username,
+                $source,
+                $externalId,
+                $now,
+            );
+            if ($updatePassword) {
+                $sql .= ', password_hash = ?';
+                $params[] = password_hash(arr($data, 'password', ''), PASSWORD_DEFAULT, array('cost' => 10));
+            }
+            $sql .= ' WHERE id = ?';
+            $params[] = (int) $existing['id'];
+
+            $this->run($sql, $params);
+
+            return array(
+                'id'          => (int) $existing['id'],
+                'created'     => false,
+                'avatar_path' => isset($existing['avatar_path']) ? (string) $existing['avatar_path'] : '',
+            );
+        }
+
+        $this->run(
+            'INSERT INTO `{p}users`'
+            . ' (school_id, role, username, email, password_hash, full_name, phone,'
+            . '  status, external_source, external_id, created_at, updated_at)'
+            . ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            array(
+                arr($data, 'school_id') === null ? null : (int) $data['school_id'],
+                arr($data, 'role', 'advisor'),
+                $username === '' ? null : $username,
+                $email,
+                password_hash(arr($data, 'password', ''), PASSWORD_DEFAULT, array('cost' => 10)),
+                arr($data, 'full_name', ''),
+                arr($data, 'phone', ''),
+                arr($data, 'status', 'active'),
+                $source,
+                $externalId,
+                $now, $now,
+            )
+        );
+
+        return array('id' => $this->lastId(), 'created' => true, 'avatar_path' => '');
+    }
+
+    /**
+     * @param int $id
+     * @param string $filename
+     */
+    public function setUserAvatar($id, $filename)
+    {
+        $this->run(
+            'UPDATE `{p}users` SET avatar_path = ?, updated_at = ? WHERE id = ?',
+            array($filename, date('Y-m-d H:i:s'), (int) $id)
+        );
+    }
+
+    /**
+     * Transferred users whose picture has not been downloaded yet.
+     *
+     * @param string $source
+     * @param int $limit
+     * @return array
+     */
+    public function usersMissingAvatar($source, $limit = 500)
+    {
+        return $this->all(
+            'SELECT id, external_id FROM `{p}users`'
+            . ' WHERE external_source = ? AND avatar_path = "" ORDER BY id ASC'
+            . ' LIMIT ' . (int) $limit,
+            array($source)
+        );
+    }
+
     public function setUserStatus($id, $status)
     {
         $this->run(

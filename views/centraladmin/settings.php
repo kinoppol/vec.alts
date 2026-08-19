@@ -48,8 +48,33 @@
       </div>
     </div>
 
+    <hr style="border:none;border-top:1px solid var(--border);margin:24px 0">
+
+    <h3 style="font-size:15px;font-weight:700;margin-bottom:6px">แหล่งข้อมูลผู้ใช้ภายนอก (RMS)</h3>
+    <p class="hint" style="margin:0 0 14px">
+      กรอกเฉพาะที่อยู่หลักของระบบ RMS เท่านั้น ส่วนพาธของ API
+      ระบบกำหนดไว้ในโปรแกรมแล้ว การเปลี่ยนค่านี้ใช้เมื่อย้ายเซิร์ฟเวอร์
+      หรือเปลี่ยนไปดึงข้อมูลจากสถานศึกษาอื่น
+    </p>
+
+    <div class="field">
+      <label class="label" for="rms_base_url">ที่อยู่ระบบ RMS</label>
+      <input class="input" type="url" id="rms_base_url" name="rms_base_url"
+             placeholder="http://rms.pbntc.ac.th"
+             value="<?php echo e(arr($settings, 'rms_base_url', '')); ?>">
+      <div class="hint">
+        ระบบจะเรียกข้อมูลจาก
+        <code><?php echo e(arr($settings, 'rms_base_url', 'http://rms.pbntc.ac.th')); ?><?php echo e($rmsApiPath); ?></code>
+        และดึงรูปโปรไฟล์จากพาธ <code>/files/</code> ของที่อยู่เดียวกัน
+      </div>
+    </div>
+
     <button type="submit" class="btn btn-primary">บันทึกการตั้งค่า</button>
   </form>
+
+  <p class="hint" style="margin-top:16px">
+    สั่งโอนข้อมูลได้ที่เมนู <a href="<?php echo e(url('centraladmin/import-users')); ?>">โอนข้อมูลผู้ใช้</a>
+  </p>
 </div>
 
 <div class="card card-lg" style="max-width:640px">

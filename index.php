@@ -63,6 +63,7 @@ $routes = array(
     'centraladmin/school-status' => array('CentralAdminController', 'schoolStatus'),
     'centraladmin/users'        => array('CentralAdminController', 'users'),
     'centraladmin/settings'     => array('CentralAdminController', 'settings'),
+    'centraladmin/import-users' => array('CentralAdminController', 'importUsers'),
 
     'admin/migrations'          => array('MigrationController', 'index'),
 );

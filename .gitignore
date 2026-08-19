@@ -6,3 +6,5 @@ storage/cache/*
 *.local.php
 Thumbs.db
 .DS_Store
+uploads/avatars/*
+!uploads/avatars/.gitkeep
