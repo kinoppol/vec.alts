@@ -133,6 +133,7 @@ class RmsImporter
             'created' => 0, 'updated' => 0, 'failed' => 0,
             'no_password' => 0, 'no_email' => 0,
             'avatar_saved' => 0, 'avatar_failed' => 0, 'avatar_pending' => 0,
+            'avatar_reasons' => array(),
             'skipped_exit' => 0,
             'errors' => array(),
         );
@@ -217,14 +218,78 @@ class RmsImporter
             }
 
             $saved = $this->downloadAvatar($picture, $outcome['id'], $outcome['avatar_path']);
-            if ($saved === null) {
-                $result['avatar_failed']++;
-            } elseif ($saved !== '') {
+            if ($saved['ok']) {
                 $result['avatar_saved']++;
+            } else {
+                $result['avatar_failed']++;
+                $this->noteReason($result, $saved['reason']);
             }
         }
 
         return $result;
+    }
+
+    /**
+     * Tallies why pictures failed, so the screen can name the cause instead
+     * of only counting failures.
+     *
+     * @param array $result
+     * @param string $reason
+     */
+    private function noteReason(&$result, $reason)
+    {
+        if (!isset($result['avatar_reasons'])) {
+            $result['avatar_reasons'] = array();
+        }
+        if (!isset($result['avatar_reasons'][$reason])) {
+            $result['avatar_reasons'][$reason] = 0;
+        }
+        $result['avatar_reasons'][$reason]++;
+    }
+
+    /**
+     * Whether the server is able to store downloaded pictures at all.
+     *
+     * Checked up front and reported plainly, because the usual cause of a
+     * whole run failing is a directory the web server cannot write to, and
+     * "N pictures failed" gives the operator nothing to act on.
+     *
+     * @return array array('ok'=>bool, 'error'=>string, 'dir'=>string)
+     */
+    public static function storageStatus()
+    {
+        $dir = self::avatarDir();
+
+        if (!is_dir($dir)) {
+            if (!@mkdir($dir, 0775, true)) {
+                return array(
+                    'ok'    => false,
+                    'dir'   => $dir,
+                    'error' => 'ไม่มีโฟลเดอร์เก็บรูป และสร้างอัตโนมัติไม่ได้',
+                );
+            }
+        }
+        if (!is_writable($dir)) {
+            return array(
+                'ok'    => false,
+                'dir'   => $dir,
+                'error' => 'โฟลเดอร์เก็บรูปไม่มีสิทธิ์เขียน',
+            );
+        }
+
+        // is_writable() can still be wrong under SELinux or an open_basedir
+        // restriction, so prove it by actually writing something.
+        $probe = $dir . DIRECTORY_SEPARATOR . 'write-test-' . vec_random_token(6);
+        if (@file_put_contents($probe, 'x') === false) {
+            return array(
+                'ok'    => false,
+                'dir'   => $dir,
+                'error' => 'เขียนไฟล์ลงโฟลเดอร์เก็บรูปไม่สำเร็จ (อาจติด SELinux หรือ open_basedir)',
+            );
+        }
+        @unlink($probe);
+
+        return array('ok' => true, 'dir' => $dir, 'error' => '');
     }
 
     /**
@@ -233,36 +298,43 @@ class RmsImporter
      * @param string $picture value of people_pic
      * @param int $userId
      * @param string $currentPath avatar already stored, if any
-     * @return string|null saved filename, '' when nothing changed, null on failure
+     * @return array array('ok'=>bool, 'file'=>string, 'reason'=>string)
      */
     public function downloadAvatar($picture, $userId, $currentPath = '')
     {
+        $fail = function ($reason) {
+            return array('ok' => false, 'file' => '', 'reason' => $reason);
+        };
+
         $relative = $this->safePicturePath($picture);
         if ($relative === '') {
-            return null;
+            return $fail('ชื่อไฟล์รูปในระบบ RMS ไม่ปลอดภัยหรือไม่ถูกต้อง');
         }
 
         $response = Http::get($this->baseUrl . self::FILES_PATH . $relative, self::MAX_IMAGE_BYTES);
-        if (!$response['ok'] || $response['body'] === '') {
-            return null;
+        if (!$response['ok']) {
+            return $fail('ดึงไฟล์รูปไม่สำเร็จ: ' . $response['error']);
+        }
+        if ($response['body'] === '') {
+            return $fail('ไฟล์รูปที่ได้รับว่างเปล่า');
         }
 
         $dir = self::avatarDir();
         if (!is_dir($dir) && !@mkdir($dir, 0775, true)) {
-            return null;
+            return $fail('สร้างโฟลเดอร์เก็บรูปไม่สำเร็จ: ' . $dir);
         }
 
         // Write first, then ask what it actually is. The extension in the
         // source is not evidence of the contents.
         $temp = $dir . DIRECTORY_SEPARATOR . 'tmp-' . vec_random_token(8);
         if (@file_put_contents($temp, $response['body']) === false) {
-            return null;
+            return $fail('เขียนไฟล์ลงโฟลเดอร์เก็บรูปไม่สำเร็จ (ตรวจสอบสิทธิ์ของ ' . $dir . ')');
         }
 
         $info = @getimagesize($temp);
         if (!is_array($info) || !isset($info[2]) || !isset(self::$imageTypes[$info[2]])) {
             @unlink($temp);
-            return null;
+            return $fail('ไฟล์ที่ได้รับไม่ใช่รูปภาพ JPEG/PNG/GIF');
         }
         $extension = self::$imageTypes[$info[2]];
 
@@ -276,7 +348,7 @@ class RmsImporter
         }
         if (!@rename($temp, $target)) {
             @unlink($temp);
-            return null;
+            return $fail('ย้ายไฟล์รูปไปยังปลายทางไม่สำเร็จ');
         }
         @chmod($target, 0644);
 
@@ -289,7 +361,7 @@ class RmsImporter
         }
 
         $this->repo->setUserAvatar($userId, $filename);
-        return $filename;
+        return array('ok' => true, 'file' => $filename, 'reason' => '');
     }
 
     /**
@@ -330,7 +402,15 @@ class RmsImporter
      */
     public function catchUpAvatars($people, $deadline)
     {
-        $result = array('saved' => 0, 'failed' => 0, 'pending' => 0);
+        $result = array('saved' => 0, 'failed' => 0, 'pending' => 0, 'avatar_reasons' => array());
+
+        // A directory the web server cannot write to fails every single
+        // picture; say so once rather than several hundred times.
+        $storage = self::storageStatus();
+        if (!$storage['ok']) {
+            $result['blocked'] = $storage['error'] . ' — ' . $storage['dir'];
+            return $result;
+        }
 
         $byExternalId = array();
         foreach ($people as $row) {
@@ -354,10 +434,11 @@ class RmsImporter
                 continue;
             }
             $saved = $this->downloadAvatar($byExternalId[$externalId], (int) $user['id'], '');
-            if ($saved === null) {
-                $result['failed']++;
-            } else {
+            if ($saved['ok']) {
                 $result['saved']++;
+            } else {
+                $result['failed']++;
+                $this->noteReason($result, $saved['reason']);
             }
         }
         return $result;

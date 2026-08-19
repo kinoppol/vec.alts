@@ -32,6 +32,27 @@ foreach ($schools as $s) {
 }
 ?>
 
+<?php if (!$storage['ok'] || !$canFetch): ?>
+  <div class="alert alert-error">
+    <b>ยังดาวน์โหลดรูปโปรไฟล์ไม่ได้</b><br>
+    <?php if (!$storage['ok']): ?>
+      <?php echo e($storage['error']); ?><br>
+      โฟลเดอร์: <code><?php echo e($storage['dir']); ?></code><br>
+      แก้โดยให้สิทธิ์เว็บเซิร์ฟเวอร์เขียนโฟลเดอร์นี้ เช่นบน CentOS:
+      <div class="sql-log" style="margin-top:8px">mkdir -p uploads/avatars
+chown -R apache:apache uploads
+chmod -R 775 uploads
+# ถ้าเปิด SELinux อยู่
+chcon -R -t httpd_sys_rw_content_t uploads</div>
+    <?php endif; ?>
+    <?php if (!$canFetch): ?>
+      เซิร์ฟเวอร์ไม่มีทั้งส่วนขยาย cURL และ <code>allow_url_fopen</code>
+      จึงเรียกข้อมูลจากภายนอกไม่ได้ — ติดตั้ง <code>php-curl</code> แล้วรีสตาร์ท Apache
+    <?php endif; ?>
+    <div style="margin-top:8px">บัญชีผู้ใช้ยังโอนได้ตามปกติ ผู้ที่ไม่มีรูปจะแสดงเป็นชื่อย่อ</div>
+  </div>
+<?php endif; ?>
+
 <div class="card" style="margin-bottom:20px">
   <form method="get" action="<?php echo e(url()); ?>" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
     <input type="hidden" name="r" value="centraladmin/import-users">
@@ -116,6 +137,17 @@ foreach ($schools as $s) {
           ยังไม่ได้ดาวน์โหลด <?php echo e($summary['avatar_pending']); ?> รูป (หมดเวลาที่กำหนดไว้ต่อรอบ)
           กดปุ่ม “ดาวน์โหลดรูปที่เหลือ” ด้านล่างเพื่อทำต่อ
         </div>
+        <?php if ($summary['avatar_reasons']): ?>
+          <h4 style="font-size:14px;font-weight:700;margin:14px 0 8px">สาเหตุที่ดาวน์โหลดรูปไม่สำเร็จ</h4>
+          <div class="table" style="border-radius:12px">
+            <?php foreach ($summary['avatar_reasons'] as $reason => $count): ?>
+              <div class="table-row" style="grid-template-columns:auto 1fr;gap:14px">
+                <span class="badge badge-warn"><?php echo e($count); ?> รูป</span>
+                <span class="cell-dim"><?php echo e($reason); ?></span>
+              </div>
+            <?php endforeach; ?>
+          </div>
+        <?php endif; ?>
       <?php endif; ?>
 
       <?php if ($summary['errors']): ?>

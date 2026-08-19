@@ -11,12 +11,23 @@
 ## การติดตั้ง
 
 1. วางไฟล์ทั้งหมดไว้ใน document root (เช่น `htdocs/vec.alts` หรือ `/var/www/html/vec.alts`)
-2. ให้สิทธิ์เว็บเซิร์ฟเวอร์เขียนโฟลเดอร์ `config/` และ `storage/`
+2. ให้สิทธิ์เว็บเซิร์ฟเวอร์เขียนโฟลเดอร์ `config/`, `storage/` และ `uploads/`
 
    ```bash
-   chmod 775 config storage storage/logs
-   chown -R apache:apache config storage
+   mkdir -p storage/logs uploads/avatars
+   chown -R apache:apache config storage uploads
+   chmod -R 775 config storage uploads
    ```
+
+   ถ้าเปิด SELinux อยู่ (ค่าเริ่มต้นของ CentOS 7) ต้องอนุญาตให้ Apache เขียนด้วย
+
+   ```bash
+   chcon -R -t httpd_sys_rw_content_t config storage uploads
+   ```
+
+   > `uploads/` ใช้เก็บรูปโปรไฟล์ที่โอนมาจากระบบ RMS ถ้าลืมให้สิทธิ์
+   > ส่วนอื่นจะทำงานปกติแต่ดาวน์โหลดรูปไม่ได้ทั้งหมด
+   > หน้าโอนข้อมูลผู้ใช้จะแจ้งเตือนพร้อมคำสั่งที่ต้องรันให้เอง
 
 3. เปิด `install.php` ผ่านเบราว์เซอร์ แล้วทำตามขั้นตอน
    (ตรวจสอบระบบ → ตั้งค่าฐานข้อมูล → สร้างผู้ดูแลระบบกลาง)

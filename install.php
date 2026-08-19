@@ -122,6 +122,32 @@ function requirement_checks()
         'detail'   => $storageWritable ? 'เขียนได้' : 'บันทึก log ไม่ได้ แต่ระบบยังทำงานต่อได้',
     );
 
+    // Profile pictures transferred from RMS land here. Easy to miss when
+    // deploying, and the symptom is every picture failing at once.
+    $uploadsDir = __DIR__ . '/uploads/avatars';
+    if (!is_dir($uploadsDir)) {
+        @mkdir($uploadsDir, 0775, true);
+    }
+    $uploadsWritable = is_dir($uploadsDir) && is_writable($uploadsDir);
+    $checks[] = array(
+        'label'    => 'เขียนไฟล์ในโฟลเดอร์ uploads/ ได้',
+        'ok'       => $uploadsWritable,
+        'required' => false,
+        'detail'   => $uploadsWritable
+            ? 'เขียนได้'
+            : 'ดาวน์โหลดรูปโปรไฟล์ไม่ได้ (ส่วนอื่นยังทำงานปกติ) — ให้สิทธิ์เว็บเซิร์ฟเวอร์เขียน uploads/',
+    );
+
+    $curlOk = function_exists('curl_init') || ini_get('allow_url_fopen');
+    $checks[] = array(
+        'label'    => 'เรียกข้อมูลจากภายนอกได้ (cURL หรือ allow_url_fopen)',
+        'ok'       => $curlOk,
+        'required' => false,
+        'detail'   => $curlOk
+            ? (function_exists('curl_init') ? 'ใช้ cURL' : 'ใช้ allow_url_fopen')
+            : 'โอนข้อมูลผู้ใช้จากระบบ RMS ไม่ได้ — ติดตั้ง php-curl',
+    );
+
     return $checks;
 }
 

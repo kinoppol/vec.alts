@@ -367,14 +367,23 @@ class CentralAdminController extends Controller
             } elseif ($action === 'avatars') {
                 @set_time_limit(0);
                 $caught = $importer->catchUpAvatars($feed['people'], time() + 20);
-                flash(
-                    $caught['pending'] > 0 ? 'warn' : 'success',
-                    'ดาวน์โหลดรูปเพิ่ม ' . $caught['saved'] . ' รูป · ไม่สำเร็จ '
-                    . $caught['failed'] . ' รูป'
-                    . ($caught['pending'] > 0
-                        ? ' · ยังเหลืออีก กดปุ่มเดิมอีกครั้งเพื่อทำต่อ' : '')
-                );
-                redirect('centraladmin/import-users');
+
+                if (isset($caught['blocked'])) {
+                    // Nothing was even attempted; the storage is the problem.
+                    flash('error', 'ดาวน์โหลดรูปไม่ได้: ' . $caught['blocked']);
+                } else {
+                    flash(
+                        $caught['failed'] > 0 ? 'warn' : 'success',
+                        'ดาวน์โหลดรูปเพิ่ม ' . $caught['saved'] . ' รูป · ไม่สำเร็จ '
+                        . $caught['failed'] . ' รูป'
+                        . ($caught['pending'] > 0
+                            ? ' · ยังเหลืออีก กดปุ่มเดิมอีกครั้งเพื่อทำต่อ' : '')
+                    );
+                    foreach ($caught['avatar_reasons'] as $reason => $count) {
+                        flash('error', 'สาเหตุ (' . $count . ' รูป): ' . $reason);
+                    }
+                }
+                redirect(url('centraladmin/import-users', array('school_id' => $selectedSchool)));
             }
         }
 
@@ -386,6 +395,10 @@ class CentralAdminController extends Controller
             'schools'    => $this->repo->schools('active'),
             'selectedSchool' => $selectedSchool,
             'defaultRmsUrl'  => $this->repo->setting('rms_base_url', ''),
+            // Shown up front: without writable storage or a way to make an
+            // outbound request, every picture will fail for the same reason.
+            'storage'        => RmsImporter::storageStatus(),
+            'canFetch'       => function_exists('curl_init') || ini_get('allow_url_fopen'),
             'summary'    => $summary,
             'preview'    => $preview,
             'lastImport' => $this->repo->setting('rms_last_import_at', ''),
