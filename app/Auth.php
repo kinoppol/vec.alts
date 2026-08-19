@@ -166,6 +166,93 @@ class Auth
         $_SESSION['_csrf'] = vec_random_token(24);
     }
 
+    /**
+     * Signs in as another account while remembering who is really here.
+     *
+     * The original identity is kept aside, so leaving the session — by the
+     * explicit button or by signing out — hands the administrator their own
+     * account back rather than dropping them at the login screen.
+     *
+     * @param array $user row from `users`
+     * @param array $school the target's institution, for the sidebar
+     */
+    public function startImpersonation($user, $school = null)
+    {
+        $original = $this->user();
+
+        $this->startSession(array(
+            'kind'        => 'staff',
+            'id'          => (int) $user['id'],
+            'school_id'   => $user['school_id'] === null ? null : (int) $user['school_id'],
+            'role'        => $user['role'],
+            'name'        => $user['full_name'],
+            'school_name' => $school !== null ? $school['name'] : null,
+        ));
+
+        // Written after startSession(), which replaces the session contents.
+        $_SESSION['impersonator'] = $original;
+    }
+
+    /**
+     * Returns to the administrator who started the impersonation.
+     *
+     * @return bool false when nobody was being impersonated
+     */
+    public function stopImpersonation()
+    {
+        if (!isset($_SESSION['impersonator']) || !is_array($_SESSION['impersonator'])) {
+            return false;
+        }
+        $original = $_SESSION['impersonator'];
+
+        // The administrator's own account is re-read rather than restored from
+        // the session: it may have been suspended or removed meanwhile.
+        $stmt = $this->db->prepare(
+            'SELECT * FROM `' . $this->t('users') . '` WHERE id = ? LIMIT 1'
+        );
+        $stmt->execute(array((int) arr($original, 'id', 0)));
+        $user = $stmt->fetch();
+
+        if (!$user || $user['status'] !== 'active' || $user['role'] !== 'centraladmin') {
+            $this->logout();
+            return false;
+        }
+
+        $this->startSession(array(
+            'kind'        => 'staff',
+            'id'          => (int) $user['id'],
+            'school_id'   => $user['school_id'] === null ? null : (int) $user['school_id'],
+            'role'        => $user['role'],
+            'name'        => $user['full_name'],
+            'school_name' => arr($original, 'school_name'),
+        ));
+
+        // Cleared last: session_regenerate_id() carries the session contents
+        // across, so startSession() leaves this key untouched. Without this the
+        // banner would stay up and a further impersonation would be refused as
+        // one already in progress.
+        unset($_SESSION['impersonator']);
+
+        return true;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isImpersonating()
+    {
+        return isset($_SESSION['impersonator']) && is_array($_SESSION['impersonator']);
+    }
+
+    /**
+     * The administrator behind an impersonated session.
+     * @return array|null
+     */
+    public function impersonator()
+    {
+        return $this->isImpersonating() ? $_SESSION['impersonator'] : null;
+    }
+
     public function logout()
     {
         $_SESSION = array();

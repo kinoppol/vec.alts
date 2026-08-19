@@ -129,4 +129,13 @@ unset($roles['centraladmin']); // only the central admin creates central admins
       </div>
     <?php endforeach; ?>
   <?php endif; ?>
+
+  <?php echo $this->partial('layout/pager', array(
+      'route'   => 'schooladmin',
+      'page'    => $page,
+      'pages'   => $pages,
+      'total'   => $total,
+      'perPage' => $perPage,
+      'params'  => array(),
+  )); ?>
 </div>

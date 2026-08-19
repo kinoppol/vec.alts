@@ -4,6 +4,9 @@
  */
 class CentralAdminController extends Controller
 {
+    /** Rows per page on the user listing. */
+    const PER_PAGE = 50;
+
     public function index()
     {
         $this->auth->require_role('centraladmin');
@@ -205,35 +208,89 @@ class CentralAdminController extends Controller
     {
         $this->auth->require_role('centraladmin');
 
-        $search = query('q');
-        $schoolId = query_int('school', 0);
-
-        $where = array('1 = 1');
-        $params = array();
-        if ($schoolId > 0) {
-            $where[] = 'u.school_id = ?';
-            $params[] = $schoolId;
-        }
-        if ($search !== '') {
-            $where[] = '(u.full_name LIKE ? OR u.email LIKE ?)';
-            $params[] = '%' . $search . '%';
-            $params[] = '%' . $search . '%';
-        }
-
-        $users = $this->repo->all(
-            'SELECT u.*, s.name AS school_name FROM `{p}users` u'
-            . ' LEFT JOIN `{p}schools` s ON s.id = u.school_id'
-            . ' WHERE ' . implode(' AND ', $where)
-            . ' ORDER BY s.name ASC, u.full_name ASC LIMIT 300',
-            $params
+        $page = max(1, query_int('page', 1));
+        $filters = array(
+            'search'    => query('q'),
+            'school_id' => query_int('school', 0),
+            'limit'     => self::PER_PAGE,
+            'offset'    => ($page - 1) * self::PER_PAGE,
         );
+
+        $total = $this->repo->staffUsersCount($filters);
+        $pages = (int) ceil($total / self::PER_PAGE);
+
+        // A filter change can leave the visitor past the end of the results.
+        if ($page > $pages && $pages > 0) {
+            $page = $pages;
+            $filters['offset'] = ($page - 1) * self::PER_PAGE;
+        }
 
         $this->render('centraladmin/users', array(
             'title'   => 'ผู้ใช้งานระบบ',
-            'users'   => $users,
+            'users'   => $this->repo->staffUsers($filters),
             'schools' => $this->repo->schools(),
-            'filters' => array('search' => $search, 'school_id' => $schoolId),
+            'filters' => $filters,
+            'total'   => $total,
+            'page'    => $page,
+            'pages'   => $pages,
+            'perPage' => self::PER_PAGE,
         ));
+    }
+
+    /**
+     * Signs the central administrator in as another user, to see exactly what
+     * that person sees when they report a problem.
+     */
+    public function impersonate()
+    {
+        $this->auth->require_role('centraladmin');
+        csrf_verify();
+
+        // Nesting would make "who is really here" ambiguous, and the way back
+         // is a single stored identity.
+        if ($this->auth->isImpersonating()) {
+            flash('error', 'กำลังสวมสิทธิ์อยู่แล้ว กรุณากลับสู่บัญชีผู้ดูแลก่อน');
+            redirect('centraladmin/users');
+        }
+
+        $id = post_int('id', 0);
+        $user = $this->repo->user($id);
+
+        if ($user === null) {
+            flash('error', 'ไม่พบผู้ใช้งานรายนี้');
+            redirect('centraladmin/users');
+        }
+        if ((int) $user['id'] === $this->auth->id()) {
+            flash('error', 'ไม่ต้องสวมสิทธิ์บัญชีของตนเอง');
+            redirect('centraladmin/users');
+        }
+        if ($user['role'] === 'centraladmin') {
+            // No privilege is gained, but it muddies the audit trail over who
+            // did what with full rights.
+            flash('error', 'ไม่อนุญาตให้สวมสิทธิ์บัญชีผู้ดูแลระบบกลางด้วยกัน');
+            redirect('centraladmin/users');
+        }
+        if ($user['status'] !== 'active') {
+            flash('error', 'บัญชีนี้ไม่ได้เปิดใช้งาน จึงสวมสิทธิ์ไม่ได้');
+            redirect('centraladmin/users');
+        }
+
+        $school = $user['school_id'] !== null ? $this->repo->school($user['school_id']) : null;
+
+        // Recorded before the identity changes, so the log names the
+        // administrator who did it rather than the account they became.
+        $this->repo->audit(
+            'user.impersonate.start',
+            $user['email'] !== null && $user['email'] !== '' ? $user['email'] : $user['username'],
+            'role=' . $user['role'],
+            $this->actor()
+        );
+
+        $this->auth->startImpersonation($user, $school);
+
+        flash('info', 'กำลังใช้งานในนาม ' . $user['full_name']
+            . ' — กดปุ่มบนแถบด้านบนเพื่อกลับสู่บัญชีผู้ดูแล');
+        redirect($this->auth->homeRoute());
     }
 
     public function settings()

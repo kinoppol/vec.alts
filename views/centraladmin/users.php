@@ -6,7 +6,7 @@
  * @var array $schools
  * @var array $filters
  */
-$cols = 'grid-template-columns:1.5fr 1.3fr 1fr .9fr .8fr';
+$cols = 'grid-template-columns:1.5fr 1.2fr .9fr .8fr 1.1fr';
 ?>
 <h1 class="page-title">ผู้ใช้งานระบบ</h1>
 <p class="page-sub">บัญชีบุคลากรทั้งหมดในทุกสถานศึกษา</p>
@@ -28,7 +28,7 @@ $cols = 'grid-template-columns:1.5fr 1.3fr 1fr .9fr .8fr';
       </select>
       <button type="submit" class="btn btn-sm">ค้นหา</button>
     </div>
-    <span class="cell-dim">พบ <?php echo e(num(count($users))); ?> รายการ</span>
+    <span class="cell-dim">พบ <?php echo e(num($total)); ?> รายการ</span>
   </form>
 
   <div class="table-head" style="<?php echo $cols; ?>">
@@ -63,8 +63,29 @@ $cols = 'grid-template-columns:1.5fr 1.3fr 1fr .9fr .8fr';
         <span class="cell-dim"><?php echo e($user['school_name'] !== null ? $user['school_name'] : 'ระบบกลาง'); ?></span>
         <span class="cell-dim"><?php echo e(role_label($user['role'])); ?></span>
         <span class="cell-dim" style="font-size:12px"><?php echo e(thai_date($user['last_login_at'])); ?></span>
-        <span><span class="badge badge-<?php echo e($badge[0]); ?>"><?php echo e($badge[1]); ?></span></span>
+        <span style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span class="badge badge-<?php echo e($badge[0]); ?>"><?php echo e($badge[1]); ?></span>
+          <?php if ($user['role'] !== 'centraladmin' && $user['status'] === 'active'): ?>
+            <form method="post" action="<?php echo e(url('centraladmin/impersonate')); ?>" style="display:inline">
+              <?php echo csrf_field(); ?>
+              <input type="hidden" name="id" value="<?php echo e($user['id']); ?>">
+              <button type="submit" class="btn btn-sm" style="color:var(--primary)"
+                      data-confirm="เข้าใช้งานระบบในนาม <?php echo e($user['full_name']); ?>? การกระทำทั้งหมดจะถูกบันทึกในชื่อผู้ใช้รายนี้">
+                สวมสิทธิ์
+              </button>
+            </form>
+          <?php endif; ?>
+        </span>
       </div>
     <?php endforeach; ?>
   <?php endif; ?>
+
+  <?php echo $this->partial('layout/pager', array(
+      'route'   => 'centraladmin/users',
+      'page'    => $page,
+      'pages'   => $pages,
+      'total'   => $total,
+      'perPage' => $perPage,
+      'params'  => array('q' => $filters['search'], 'school' => $filters['school_id']),
+  )); ?>
 </div>

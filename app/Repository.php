@@ -241,13 +241,97 @@ class Repository
 
     // ----------------------------------------------------------- staff users
 
-    public function usersForSchool($schoolId)
+    public function usersForSchool($schoolId, $limit = 0, $offset = 0)
     {
-        return $this->all(
-            'SELECT u.*, d.name AS department_name FROM `{p}users` u'
+        $sql = 'SELECT u.*, d.name AS department_name FROM `{p}users` u'
             . ' LEFT JOIN `{p}departments` d ON d.id = u.department_id'
-            . ' WHERE u.school_id = ? ORDER BY FIELD(u.status, "pending", "active", "suspended"), u.full_name ASC',
+            . ' WHERE u.school_id = ?'
+            . ' ORDER BY FIELD(u.status, "pending", "active", "suspended"), u.full_name ASC';
+        if ((int) $limit > 0) {
+            $sql .= ' LIMIT ' . (int) $limit . ' OFFSET ' . max(0, (int) $offset);
+        }
+        return $this->all($sql, array((int) $schoolId));
+    }
+
+    /**
+     * @param int $schoolId
+     * @return int
+     */
+    public function usersForSchoolCount($schoolId)
+    {
+        return (int) $this->scalar(
+            'SELECT COUNT(*) FROM `{p}users` WHERE school_id = ?',
             array((int) $schoolId)
+        );
+    }
+
+    /**
+     * Conditions shared by staffUsers() and staffUsersCount().
+     *
+     * @param array $filters school_id, search
+     * @param array $params filled with the bound values
+     * @return string
+     */
+    private function staffUserWhere($filters, &$params)
+    {
+        $where = array('1 = 1');
+        $params = array();
+
+        $schoolId = (int) arr($filters, 'school_id', 0);
+        if ($schoolId > 0) {
+            $where[] = 'u.school_id = ?';
+            $params[] = $schoolId;
+        }
+        $search = trim((string) arr($filters, 'search', ''));
+        if ($search !== '') {
+            // Username matters here too: transferred people often have no email.
+            $where[] = '(u.full_name LIKE ? OR u.email LIKE ? OR u.username LIKE ?)';
+            $like = '%' . $search . '%';
+            $params[] = $like;
+            $params[] = $like;
+            $params[] = $like;
+        }
+        return implode(' AND ', $where);
+    }
+
+    /**
+     * Staff accounts across every institution, one page at a time.
+     *
+     * @param array $filters school_id, search, limit, offset
+     * @return array
+     */
+    public function staffUsers($filters = array())
+    {
+        $params = array();
+        $where = $this->staffUserWhere($filters, $params);
+
+        $limit = (int) arr($filters, 'limit', 50);
+        $offset = max(0, (int) arr($filters, 'offset', 0));
+        if ($limit < 1) {
+            $limit = 50;
+        }
+
+        return $this->all(
+            'SELECT u.*, s.name AS school_name FROM `{p}users` u'
+            . ' LEFT JOIN `{p}schools` s ON s.id = u.school_id'
+            . ' WHERE ' . $where
+            . ' ORDER BY s.name ASC, u.full_name ASC'
+            . ' LIMIT ' . $limit . ' OFFSET ' . $offset,
+            $params
+        );
+    }
+
+    /**
+     * @param array $filters
+     * @return int
+     */
+    public function staffUsersCount($filters = array())
+    {
+        $params = array();
+        $where = $this->staffUserWhere($filters, $params);
+        return (int) $this->scalar(
+            'SELECT COUNT(*) FROM `{p}users` u WHERE ' . $where,
+            $params
         );
     }
 

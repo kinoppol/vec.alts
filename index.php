@@ -31,6 +31,7 @@ $routes = array(
 
     'login'                     => array('AuthController', 'login'),
     'logout'                    => array('AuthController', 'logout'),
+    'stop-impersonating'        => array('AuthController', 'stopImpersonating'),
     'register'                  => array('AuthController', 'register'),
 
     'account/profile'           => array('AccountController', 'profile'),
@@ -65,6 +66,7 @@ $routes = array(
     'centraladmin/users'        => array('CentralAdminController', 'users'),
     'centraladmin/settings'     => array('CentralAdminController', 'settings'),
     'centraladmin/import-users' => array('CentralAdminController', 'importUsers'),
+    'centraladmin/impersonate'  => array('CentralAdminController', 'impersonate'),
 
     'admin/migrations'          => array('MigrationController', 'index'),
 );

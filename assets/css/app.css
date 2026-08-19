@@ -482,6 +482,29 @@ textarea.input { min-height: 80px; resize: vertical; }
 .kv dt { color: var(--text-dim); }
 .kv dd { color: var(--text); font-weight: 600; }
 
+/* --------------------------------------------------------- impersonation */
+
+/*
+ * Deliberately loud and always on screen: acting as someone else is easy to
+ * forget, and every change made meanwhile is recorded against them.
+ */
+.impersonation-bar {
+  position: sticky; top: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, var(--warn), #b06e00);
+  color: #fff; font-size: 13px; font-weight: 600;
+  box-shadow: 0 2px 12px -4px rgba(0, 0, 0, .5);
+}
+.impersonation-bar b { font-weight: 700; }
+.impersonation-bar .btn {
+  background: rgba(255, 255, 255, .18);
+  border-color: rgba(255, 255, 255, .45);
+  color: #fff;
+}
+.impersonation-bar .btn:hover { background: rgba(255, 255, 255, .3); color: #fff; }
+
 /* ------------------------------------------------- long-running operations */
 
 /*

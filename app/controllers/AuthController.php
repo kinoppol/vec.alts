@@ -59,12 +59,55 @@ class AuthController extends Controller
         if (is_post()) {
             csrf_verify();
         }
+
+        // Signing out of an impersonated session returns the administrator to
+        // their own account rather than ending the session entirely — they
+        // never signed in as this person in the first place.
+        if ($this->auth->isImpersonating()) {
+            $this->stopImpersonating();
+            return;
+        }
+
         $actor = $this->auth->user();
         if ($actor) {
             $this->repo->audit('logout', $actor['role'], null, $actor);
         }
         $this->auth->logout();
         redirect('home');
+    }
+
+    /**
+     * Drops back to the administrator behind an impersonated session.
+     */
+    public function stopImpersonating()
+    {
+        if (is_post()) {
+            csrf_verify();
+        }
+
+        if (!$this->auth->isImpersonating()) {
+            redirect($this->auth->check() ? $this->auth->homeRoute() : 'home');
+        }
+
+        $impersonated = $this->auth->user();
+        $admin = $this->auth->impersonator();
+
+        $restored = $this->auth->stopImpersonation();
+
+        if (!$restored) {
+            flash('error', 'บัญชีผู้ดูแลเดิมใช้งานไม่ได้แล้ว กรุณาเข้าสู่ระบบใหม่');
+            redirect('login');
+        }
+
+        $this->repo->audit(
+            'user.impersonate.stop',
+            arr($impersonated, 'name', ''),
+            'admin=' . arr($admin, 'name', ''),
+            $this->auth->user()
+        );
+
+        flash('success', 'กลับสู่บัญชีผู้ดูแลระบบกลางเรียบร้อยแล้ว');
+        redirect($this->auth->homeRoute());
     }
 
     /**

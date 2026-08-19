@@ -6,6 +6,9 @@
 class SchoolAdminController extends Controller
 {
     const PER_PAGE = 50;
+
+    /** Rows per page on the staff listing. */
+    const USERS_PER_PAGE = 50;
     const MAX_UPLOAD = 5242880; // 5 MB
 
     public function users()
@@ -13,13 +16,28 @@ class SchoolAdminController extends Controller
         $this->auth->require_role('schooladmin');
         $schoolId = $this->auth->schoolId();
 
+        $page = max(1, query_int('page', 1));
+        $total = $this->repo->usersForSchoolCount($schoolId);
+        $pages = (int) ceil($total / self::USERS_PER_PAGE);
+        if ($page > $pages && $pages > 0) {
+            $page = $pages;
+        }
+
         $this->render('schooladmin/users', array(
             'title'       => 'ผู้ใช้งาน',
-            'users'       => $this->repo->usersForSchool($schoolId),
+            'users'       => $this->repo->usersForSchool(
+                $schoolId,
+                self::USERS_PER_PAGE,
+                ($page - 1) * self::USERS_PER_PAGE
+            ),
             'departments' => $this->repo->departments($schoolId),
             'school'      => $this->currentSchool(),
             'showForm'    => query('new') === '1',
             'old'         => array(),
+            'total'       => $total,
+            'page'        => $page,
+            'pages'       => $pages,
+            'perPage'     => self::USERS_PER_PAGE,
         ));
     }
 

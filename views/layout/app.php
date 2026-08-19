@@ -15,6 +15,22 @@ $menu = app_menu($auth->role());
 <?php echo $this->partial('layout/head', isset($title) ? array('title' => $title) : array()); ?>
 </head>
 <body>
+
+<?php if ($auth->isImpersonating()): ?>
+  <?php $impersonator = $auth->impersonator(); ?>
+  <div class="impersonation-bar" role="status">
+    <span>
+      👤 กำลังใช้งานในนาม <b><?php echo e(arr($user, 'name', '')); ?></b>
+      (<?php echo e(role_label($auth->role())); ?>)
+      · ผู้ดูแล: <?php echo e(arr($impersonator, 'name', '')); ?>
+    </span>
+    <form method="post" action="<?php echo e(url('stop-impersonating')); ?>">
+      <?php echo csrf_field(); ?>
+      <button type="submit" class="btn btn-sm">กลับสู่บัญชีผู้ดูแล</button>
+    </form>
+  </div>
+<?php endif; ?>
+
 <div class="shell scr">
 
   <aside class="sidebar">
