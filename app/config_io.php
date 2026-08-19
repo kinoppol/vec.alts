@@ -164,6 +164,25 @@ function vec_write_config($config)
 }
 
 /**
+ * Declares UTF-8 for the response, before anything is echoed.
+ *
+ * The HTTP Content-Type header overrides the document's <meta charset>, and
+ * nothing declares UTF-8 on our behalf: PHP 5.4 still defaults
+ * default_charset to ISO-8859-1, and a host with `AddDefaultCharset
+ * windows-874` (common on Thai servers) stamps a legacy Thai charset on every
+ * response. Either way the browser decodes our UTF-8 bytes as something else
+ * and every Thai string renders as mojibake. Saying it ourselves settles it
+ * whatever the server is configured to do.
+ */
+function vec_send_charset()
+{
+    @ini_set('default_charset', 'UTF-8');
+    if (!headers_sent()) {
+        header('Content-Type: text/html; charset=UTF-8');
+    }
+}
+
+/**
  * Starts the session with settings that work on both target PHP versions.
  * @param array $sessionConfig
  */

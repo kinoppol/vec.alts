@@ -27,6 +27,9 @@ require VEC_APP . '/Auth.php';
 require VEC_APP . '/View.php';
 require VEC_APP . '/Repository.php';
 
+// Before any output, including the redirect below and the fatal-error pages.
+vec_send_charset();
+
 $config = vec_load_config();
 
 if ($config === null || empty($config['installed'])) {

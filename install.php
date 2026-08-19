@@ -32,6 +32,8 @@ if (!ini_get('date.timezone')) {
 if (function_exists('mb_internal_encoding')) {
     mb_internal_encoding('UTF-8');
 }
+// The installer does not go through bootstrap.php, so it declares UTF-8 itself.
+vec_send_charset();
 
 vec_start_session(array('name' => 'VECINSTALL', 'lifetime' => 3600));
 
