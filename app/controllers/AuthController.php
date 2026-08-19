@@ -10,33 +10,46 @@ class AuthController extends Controller
             redirect($this->auth->homeRoute());
         }
 
-        $tab = query('tab', 'alumni');
+        // An empty tab means the visitor has not said which kind of account
+        // they hold yet, and the screen asks that before it shows any fields.
+        // The two kinds take entirely different credentials, so a screen that
+        // opened on one of them had staff typing their email into the box
+        // asking for a student code.
+        $tab = query('tab', '');
         $old = array();
 
         if (is_post()) {
             csrf_verify();
-            $tab = post('tab', 'alumni');
+            $tab = post('tab', '');
 
             if ($tab === 'staff') {
                 $identifier = post('identifier');
                 $old['identifier'] = $identifier;
                 $result = $this->auth->loginStaff($identifier, post('password'));
-            } else {
+            } elseif ($tab === 'alumni') {
                 $studentCode = post('student_code');
                 $old['student_code'] = $studentCode;
                 $result = $this->auth->loginAlumni($studentCode, post('national_id'));
+            } else {
+                $result = array('ok' => false, 'error' => 'กรุณาเลือกประเภทผู้ใช้งานก่อนเข้าสู่ระบบ');
             }
 
             if ($result['ok']) {
                 $this->repo->audit('login', $this->auth->role(), null, $this->auth->user());
                 redirect($this->auth->homeRoute());
             }
+            // A failed attempt keeps the visitor on the form they were using,
+            // rather than dropping them back at the chooser.
             flash('error', $result['error']);
         }
 
+        if ($tab !== 'staff' && $tab !== 'alumni') {
+            $tab = '';
+        }
+
         $this->renderBlank('auth/login', array(
-            'title' => 'เข้าสู่ระบบ',
-            'tab'   => $tab === 'staff' ? 'staff' : 'alumni',
+            'title' => $tab === '' ? 'เลือกประเภทผู้ใช้งาน' : 'เข้าสู่ระบบ',
+            'tab'   => $tab,
             'old'   => $old,
         ));
     }

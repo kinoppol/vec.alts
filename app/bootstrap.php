@@ -9,7 +9,7 @@
 
 define('VEC_ROOT', dirname(__DIR__));
 define('VEC_APP', VEC_ROOT . '/app');
-define('VEC_VERSION', '1.1.0');
+define('VEC_VERSION', '1.2.0');
 
 // Report everything internally; whether it reaches the browser is decided
 // once the config is loaded. E_STRICT folds into E_ALL from PHP 5.4 onwards.

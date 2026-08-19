@@ -319,19 +319,38 @@ textarea.input { min-height: 80px; resize: vertical; }
 }
 .auth-box { width: 100%; max-width: 380px; }
 
-.tabs {
-  display: flex; gap: 8px; background: var(--surface-2);
-  padding: 5px; border-radius: 12px; margin-bottom: 26px;
+/* Sign in asks which kind of account the visitor holds before it shows any
+   fields, because the two kinds take entirely different credentials. This
+   replaced a pair of tabs that opened on one of them, which had staff typing
+   their email into the field asking for a student code. */
+
+.auth-title { font-size: 22px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+.auth-kind {
+  display: inline-block; margin-left: 6px; padding: 3px 10px; border-radius: 999px;
+  background: var(--primary-soft); color: var(--primary);
+  font-size: 13px; font-weight: 600; vertical-align: middle;
 }
-.tab {
-  flex: 1; padding: 10px; border-radius: 9px; border: none; cursor: pointer;
-  font-size: 14px; font-weight: 600; background: transparent; color: var(--text-dim);
-  text-align: center; display: block;
+.auth-lead { font-size: 14px; color: var(--text-dim); line-height: 1.6; margin-bottom: 22px; }
+.auth-change {
+  display: inline-block; font-size: 13px; font-weight: 600;
+  color: var(--text-dim); margin-bottom: 14px;
 }
-.tab.on {
-  background: var(--surface); color: var(--primary);
-  box-shadow: 0 2px 8px -4px rgba(0, 0, 0, .3);
+.auth-change:hover { color: var(--primary); }
+
+.choice-list { display: grid; gap: 12px; margin-bottom: 4px; }
+.choice {
+  display: flex; align-items: center; gap: 14px; padding: 18px;
+  border: 1px solid var(--border); border-radius: 14px;
+  background: var(--surface); color: var(--text); text-align: left;
+  transition: border-color .15s, background .15s;
 }
+.choice:hover { border-color: var(--primary); background: var(--primary-soft-2); color: var(--text); }
+.choice:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.choice-icon { flex: none; font-size: 26px; line-height: 1; }
+.choice-title { display: block; font-size: 16px; font-weight: 700; margin-bottom: 3px; }
+.choice-desc { display: block; font-size: 12.5px; color: var(--text-dim); line-height: 1.5; }
+.choice-go { flex: none; margin-left: auto; color: var(--text-dim); font-size: 18px; }
+.choice:hover .choice-go { color: var(--primary); }
 
 /* ------------------------------------------------------------- app shell */
 
