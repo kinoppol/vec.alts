@@ -48,6 +48,10 @@ html[data-theme="dark"] {
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* IE11 and old Android browsers do not style the hidden attribute themselves,
+   and app.js relies on it to keep JavaScript-only controls out of the page. */
+[hidden] { display: none !important; }
+
 body {
   font-family: 'IBM Plex Sans Thai', 'IBM Plex Sans', 'Noto Sans Thai',
                system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif;
@@ -158,6 +162,22 @@ textarea.input { min-height: 80px; resize: vertical; }
 .hint { font-size: 12px; color: var(--text-dim); margin-top: 6px; }
 .field-error { font-size: 12px; color: var(--danger); margin-top: 6px; }
 .input.has-error { border-color: var(--danger); }
+
+/* Password field with a reveal toggle. The button is emitted with the hidden
+   attribute and only shown by app.js, so a browser with JavaScript switched
+   off never renders a control that cannot do anything. The label is always
+   four Thai characters (แสดง / ซ่อน) so the field does not reflow on toggle. */
+.input-reveal { position: relative; }
+.input-reveal .input { padding-right: 82px; }
+.reveal-btn {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  padding: 8px 12px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text-dim);
+  font-family: inherit; font-size: 12px; font-weight: 600; line-height: 1;
+  cursor: pointer;
+}
+.reveal-btn:hover { color: var(--text); border-color: var(--primary); }
+.reveal-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
 
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }

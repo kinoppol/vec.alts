@@ -85,6 +85,39 @@
         sync();
     }
 
+    /*
+     * Reveal toggle for password fields, so someone typing a long password on
+     * a phone keyboard can check it before submitting. The markup ships the
+     * button hidden and it is unhidden here, because without JavaScript there
+     * is nothing it could do.
+     */
+    function initPasswordReveal() {
+        var buttons = document.querySelectorAll('[data-reveal-password]');
+        for (var i = 0; i < buttons.length; i++) {
+            (function (button) {
+                var field = document.getElementById(button.getAttribute('data-reveal-password'));
+                if (!field) {
+                    return;
+                }
+                button.hidden = false;
+                button.addEventListener('click', function () {
+                    var revealed = field.type === 'text';
+                    // Old IE refuses to retype a live password input; leaving
+                    // the field as it was beats throwing on the click.
+                    try {
+                        field.type = revealed ? 'password' : 'text';
+                    } catch (e) {
+                        return;
+                    }
+                    button.textContent = revealed ? 'แสดง' : 'ซ่อน';
+                    button.setAttribute('aria-pressed', revealed ? 'false' : 'true');
+                    button.setAttribute('aria-label', revealed ? 'แสดงรหัสผ่าน' : 'ซ่อนรหัสผ่าน');
+                    field.focus();
+                });
+            }(buttons[i]));
+        }
+    }
+
     /* Confirmation prompts for destructive buttons. */
     function initConfirms() {
         var nodes = document.querySelectorAll('[data-confirm]');
@@ -120,6 +153,7 @@
     ready(function () {
         initTheme();
         initSurveyForm();
+        initPasswordReveal();
         initConfirms();
         initAutoSubmit();
     });

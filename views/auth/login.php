@@ -53,8 +53,13 @@ $old = isset($old) ? $old : array();
 
           <div class="field">
             <label class="label" for="national_id">เลขบัตรประชาชน (รหัสผ่าน)</label>
-            <input class="input" type="password" id="national_id" name="national_id"
-                   inputmode="numeric" placeholder="เลขบัตรประชาชน 13 หลัก" required>
+            <div class="input-reveal">
+              <input class="input" type="password" id="national_id" name="national_id"
+                     inputmode="numeric" placeholder="เลขบัตรประชาชน 13 หลัก" required>
+              <button type="button" class="reveal-btn" data-reveal-password="national_id"
+                      aria-controls="national_id" aria-pressed="false"
+                      aria-label="แสดงรหัสผ่าน" hidden>แสดง</button>
+            </div>
             <div class="hint">ระบบเก็บเลขบัตรในรูปแบบเข้ารหัส ไม่สามารถอ่านย้อนกลับได้</div>
           </div>
 
@@ -77,8 +82,13 @@ $old = isset($old) ? $old : array();
 
           <div class="field">
             <label class="label" for="password">รหัสผ่าน</label>
-            <input class="input" type="password" id="password" name="password"
-                   placeholder="••••••••" required autocomplete="current-password">
+            <div class="input-reveal">
+              <input class="input" type="password" id="password" name="password"
+                     placeholder="••••••••" required autocomplete="current-password">
+              <button type="button" class="reveal-btn" data-reveal-password="password"
+                      aria-controls="password" aria-pressed="false"
+                      aria-label="แสดงรหัสผ่าน" hidden>แสดง</button>
+            </div>
           </div>
 
           <div class="hint" style="margin-bottom:16px">
