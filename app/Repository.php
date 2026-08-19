@@ -250,6 +250,31 @@ class Repository
         );
     }
 
+    /**
+     * The fields a staff member may change about themselves.
+     *
+     * Deliberately narrow: role, school, department and status decide what an
+     * account can reach, so they stay with the administrator who granted them
+     * and are not writable from the account's own screen.
+     *
+     * @param int $id
+     * @param array $data full_name, email, phone
+     */
+    public function updateUserProfile($id, $data)
+    {
+        $this->run(
+            'UPDATE `{p}users` SET full_name = ?, email = ?, phone = ?, updated_at = ?'
+            . ' WHERE id = ?',
+            array(
+                arr($data, 'full_name', ''),
+                arr($data, 'email', ''),
+                arr($data, 'phone', ''),
+                date('Y-m-d H:i:s'),
+                (int) $id,
+            )
+        );
+    }
+
     /** @return array advisors of one school, for assignment dropdowns */
     public function advisors($schoolId)
     {

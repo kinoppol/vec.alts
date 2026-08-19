@@ -196,6 +196,28 @@ class Auth
     }
 
     /**
+     * Merges changed fields into the signed-in identity.
+     *
+     * The session carries a copy of the account row taken at sign-in, so an
+     * account that edits itself would otherwise keep stamping its old name on
+     * audit entries until the next login.
+     *
+     * @param array $changes
+     */
+    public function updateIdentity($changes)
+    {
+        $identity = $this->user();
+        if ($identity === null) {
+            return;
+        }
+        foreach ($changes as $key => $value) {
+            $identity[$key] = $value;
+        }
+        $_SESSION['auth'] = $identity;
+        $this->current = $identity;
+    }
+
+    /**
      * @return string '' when signed out
      */
     public function role()

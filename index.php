@@ -32,6 +32,7 @@ $routes = array(
     'logout'                    => array('AuthController', 'logout'),
     'register'                  => array('AuthController', 'register'),
 
+    'account/profile'           => array('AccountController', 'profile'),
     'account/password'          => array('AccountController', 'password'),
 
     'alumni'                    => array('AlumniController', 'form'),

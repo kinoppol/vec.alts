@@ -388,9 +388,11 @@ function app_menu($role)
     }
 
     // Appended rather than repeated in each branch: every role that signs in
-    // with a password can change it. Alumni authenticate with their national
-    // ID and have no password of their own to set.
+    // with a password owns an account it can maintain itself. Alumni are the
+    // exception — they authenticate with their national ID, and their contact
+    // details live on their own survey screen.
     if ($menu && $role !== 'alumni') {
+        $menu[] = array('route' => 'account/profile', 'label' => 'โปรไฟล์ของฉัน');
         $menu[] = array('route' => 'account/password', 'label' => 'เปลี่ยนรหัสผ่าน');
     }
     return $menu;

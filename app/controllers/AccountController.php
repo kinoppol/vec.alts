@@ -12,9 +12,78 @@
  */
 class AccountController extends Controller
 {
+    /** Roles that sign in with a password and therefore have an account here. */
+    private static function selfServiceRoles()
+    {
+        return array('advisor', 'exec', 'schooladmin', 'centraladmin');
+    }
+
+    public function profile()
+    {
+        $this->auth->require_role(self::selfServiceRoles());
+
+        $user = $this->repo->user($this->auth->id());
+        if ($user === null) {
+            flash('error', 'ไม่พบบัญชีผู้ใช้ของคุณ');
+            $this->auth->logout();
+            redirect('login');
+        }
+
+        if (is_post()) {
+            csrf_verify();
+
+            $fullName = post('full_name');
+            $email = post('email');
+            $phone = post('phone');
+
+            if ($fullName === '') {
+                flash('error', 'กรุณากรอกชื่อ-นามสกุล');
+                redirect('account/profile');
+            }
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                flash('error', 'รูปแบบอีเมลไม่ถูกต้อง');
+                redirect('account/profile');
+            }
+
+            // The email is also a sign-in identifier, so it has to stay unique
+            // across the whole system, not just within this institution.
+            $clash = $this->repo->userByEmail($email);
+            if ($clash !== null && (int) $clash['id'] !== (int) $user['id']) {
+                flash('error', 'อีเมลนี้ถูกใช้งานโดยบัญชีอื่นแล้ว');
+                redirect('account/profile');
+            }
+
+            $this->repo->updateUserProfile($user['id'], array(
+                'full_name' => $fullName,
+                'email'     => $email,
+                'phone'     => $phone,
+            ));
+
+            // The session holds a copy of the row from sign-in time; refresh
+            // the name so the audit log stops recording the old one.
+            $this->auth->updateIdentity(array('name' => $fullName));
+
+            $detail = ($email !== $user['email'])
+                ? 'เปลี่ยนอีเมลเข้าสู่ระบบจาก ' . $user['email'] . ' เป็น ' . $email
+                : null;
+            $this->repo->audit('account.profile', $email, $detail, $this->actor());
+
+            flash('success', $email !== $user['email']
+                ? 'บันทึกโปรไฟล์เรียบร้อยแล้ว ครั้งต่อไปให้เข้าสู่ระบบด้วยอีเมลใหม่'
+                : 'บันทึกโปรไฟล์เรียบร้อยแล้ว');
+            redirect('account/profile');
+        }
+
+        $this->render('account/profile', array(
+            'title'  => 'โปรไฟล์ของฉัน',
+            'user'   => $user,
+            'school' => $this->currentSchool(),
+        ));
+    }
+
     public function password()
     {
-        $this->auth->require_role(array('advisor', 'exec', 'schooladmin', 'centraladmin'));
+        $this->auth->require_role(self::selfServiceRoles());
 
         $user = $this->repo->user($this->auth->id());
         if ($user === null) {
