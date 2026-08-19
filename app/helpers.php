@@ -346,41 +346,54 @@ function role_label($role)
  */
 function app_menu($role)
 {
+    $menu = array();
     switch ($role) {
         case 'alumni':
-            return array(
+            $menu = array(
                 array('route' => 'alumni', 'label' => 'ข้อมูลของฉัน'),
                 array('route' => 'alumni/history', 'label' => 'ประวัติการอัปเดต'),
             );
+            break;
         case 'advisor':
-            return array(
+            $menu = array(
                 array('route' => 'advisor', 'label' => 'ศิษย์เก่าในความดูแล'),
                 array('route' => 'advisor/summary', 'label' => 'สรุปกลุ่ม'),
             );
+            break;
         case 'exec':
-            return array(
+            $menu = array(
                 array('route' => 'exec', 'label' => 'แดชบอร์ดภาพรวม'),
                 array('route' => 'exec/departments', 'label' => 'รายงานตามแผนก'),
                 array('route' => 'exec/years', 'label' => 'เปรียบเทียบปีการศึกษา'),
                 array('route' => 'exec/export', 'label' => 'ส่งออกรายงาน'),
             );
+            break;
         case 'schooladmin':
-            return array(
+            $menu = array(
                 array('route' => 'schooladmin', 'label' => 'ผู้ใช้งาน'),
                 array('route' => 'schooladmin/alumni', 'label' => 'ข้อมูลศิษย์เก่า'),
                 array('route' => 'schooladmin/import', 'label' => 'นำเข้าข้อมูล'),
                 array('route' => 'schooladmin/departments', 'label' => 'จัดการสาขา'),
             );
+            break;
         case 'centraladmin':
-            return array(
+            $menu = array(
                 array('route' => 'centraladmin', 'label' => 'สถานศึกษาทั้งหมด'),
                 array('route' => 'centraladmin/requests', 'label' => 'คำขอสมัคร'),
                 array('route' => 'centraladmin/users', 'label' => 'ผู้ใช้งานระบบ'),
                 array('route' => 'admin/migrations', 'label' => 'Migration ฐานข้อมูล'),
                 array('route' => 'centraladmin/settings', 'label' => 'ตั้งค่าระบบ'),
             );
+            break;
     }
-    return array();
+
+    // Appended rather than repeated in each branch: every role that signs in
+    // with a password can change it. Alumni authenticate with their national
+    // ID and have no password of their own to set.
+    if ($menu && $role !== 'alumni') {
+        $menu[] = array('route' => 'account/password', 'label' => 'เปลี่ยนรหัสผ่าน');
+    }
+    return $menu;
 }
 
 /**
