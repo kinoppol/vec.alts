@@ -133,9 +133,9 @@ MySQL does not). Existence checks go through `information_schema`, never
 
 ### Schema conventions (portability across MySQL 5.5–8 and MariaDB 10)
 
-- **No `ENUM`.** Statuses are `VARCHAR` validated in PHP — see `employment_statuses()`
-  and `staff_roles()` in `app/helpers.php`. Adding a status is a helpers.php edit, not
-  a migration.
+- **No `ENUM`.** Statuses are `VARCHAR` validated in PHP — see `employment_statuses()`,
+  `staff_roles()`, `study_states()` and `graduation_plans()` in `app/helpers.php`.
+  Adding a status is a helpers.php edit, not a migration.
 - **No `TIMESTAMP` / `CURRENT_TIMESTAMP`.** `DATETIME` columns written by the app,
   because MySQL 5.5 allows only one auto-timestamp column per table.
 - **Indexed `VARCHAR` stays at or below 191 chars** so utf8mb4 fits InnoDB's old
@@ -179,6 +179,19 @@ with a null `submitted_at`.
 - Dates render through `thai_date()`.
 - Salary reaches reports as `salary_band` (`Repository::salaryBand()`), so aggregate
   screens never expose an individual figure.
+- **Current students and graduates share the `alumni` table**, told apart by
+  `study_state` (`studying` / `graduated`). Graduating flips the flag on the row that
+  is already there, so nothing a student filled in is lost. `Auth::loginAlumni()`
+  reads it to hand out the `student` or `alumni` role from identical credentials.
+
+  **Every employment-tracking query must filter `study_state = "graduated"`** —
+  someone who has not finished cannot answer the survey, and counting them drags the
+  placement rate down against a denominator that can never respond. That filter is
+  already in `schoolSummary`, `departmentBreakdown`, `yearComparison`,
+  `graduationYears`, `centralSummary` and `schoolsWithCounts`; a new report needs it
+  too. In `departmentBreakdown` it belongs in the `LEFT JOIN ... ON` clause, not the
+  `WHERE`: moved to the `WHERE` it becomes an inner join and silently drops any
+  department whose students have all yet to graduate.
 - CSV exports carry a UTF-8 BOM so Excel on Windows reads Thai correctly.
 
 ## Front end

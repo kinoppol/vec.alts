@@ -149,6 +149,7 @@ class SchoolAdminController extends Controller
             'survey_year'   => $this->repo->surveyYear(),
             'search'        => query('q'),
             'state'         => query('state'),
+            'study_state'   => query('study'),
             'department_id' => query_int('dept', 0),
             'limit'         => self::PER_PAGE,
             'offset'        => ($page - 1) * self::PER_PAGE,
@@ -164,6 +165,45 @@ class SchoolAdminController extends Controller
             'departments' => $this->repo->departments($schoolId),
             'advisors'    => $this->repo->advisors($schoolId),
         ));
+    }
+
+    /**
+     * Moves one person between the current-student and graduate groups.
+     *
+     * Graduating flips a flag on the row that is already there, so the contact
+     * details and plan the student filled in while studying carry straight
+     * over into the employment survey that starts afterwards.
+     */
+    public function alumniState()
+    {
+        $this->auth->require_role('schooladmin');
+        csrf_verify();
+
+        $schoolId = $this->auth->schoolId();
+        $id = post_int('id', 0);
+        $state = post('study_state');
+
+        // Reloaded and checked against this institution rather than trusted
+        // from the form: an id from a request never proves ownership.
+        $person = $this->repo->alumni($id);
+        if ($person === null || (int) $person['school_id'] !== (int) $schoolId) {
+            flash('error', 'ไม่พบข้อมูลนักศึกษารายนี้ในสถานศึกษาของคุณ');
+            redirect('schooladmin/alumni');
+        }
+
+        if (!$this->repo->setAlumniStudyState($id, $state)) {
+            flash('error', 'สถานะการศึกษาไม่ถูกต้อง');
+            redirect('schooladmin/alumni');
+        }
+
+        $this->repo->audit(
+            'alumni.study_state',
+            $person['student_code'],
+            'เปลี่ยนเป็น ' . study_state_label($state),
+            $this->actor()
+        );
+        flash('success', $person['student_code'] . ' · เปลี่ยนเป็น' . study_state_label($state) . 'แล้ว');
+        redirect('schooladmin/alumni');
     }
 
     public function import()
@@ -226,6 +266,9 @@ class SchoolAdminController extends Controller
         $schoolId = (int) $this->auth->schoolId();
         $defaultYear = post_int('graduation_year', current_academic_year());
         $updateExisting = post('update_existing') === '1';
+        // A roster of people still studying is imported the same way as a
+        // graduating class; only which group they land in differs.
+        $importAs = post('study_state') === 'studying' ? 'studying' : 'graduated';
 
         // Existing departments, matched by name so a spreadsheet can just use
         // the human-readable value.
@@ -361,6 +404,7 @@ class SchoolAdminController extends Controller
                         'email'           => $get('email'),
                         'line_id'         => $get('line_id'),
                         'address'         => $get('address'),
+                        'study_state'     => $importAs,
                     ));
                 }
                 $out['created']++;

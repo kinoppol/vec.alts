@@ -19,6 +19,10 @@ class AdvisorController extends Controller
             'survey_year'   => $this->repo->surveyYear(),
             'search'        => query('q'),
             'state'         => query('state'),
+            // This screen exists to chase employment survey responses, which
+            // only the graduated owe. Current students in the same caseload
+            // would show up as a backlog that cannot be worked.
+            'study_state'   => 'graduated',
             'department_id' => query_int('dept', 0),
             'limit'         => self::PER_PAGE,
             'offset'        => ($page - 1) * self::PER_PAGE,
@@ -32,6 +36,7 @@ class AdvisorController extends Controller
             'school_id'   => $schoolId,
             'advisor_id'  => $this->auth->id(),
             'survey_year' => $filters['survey_year'],
+            'study_state' => 'graduated',
         );
         $counts = array(
             'total'   => $this->repo->alumniCount($base),
@@ -63,6 +68,7 @@ class AdvisorController extends Controller
         // narrower slice here.
         $total = $this->repo->alumniCount(array(
             'school_id' => $schoolId, 'advisor_id' => $advisorId, 'survey_year' => $year,
+            'study_state' => 'graduated',
         ));
 
         $rows = $this->repo->all(
@@ -70,6 +76,7 @@ class AdvisorController extends Controller
             . ' FROM `{p}alumni` a'
             . ' JOIN `{p}alumni_status` st ON st.alumni_id = a.id AND st.survey_year = ?'
             . ' WHERE a.school_id = ? AND a.advisor_user_id = ? AND st.is_draft = 0'
+            . '   AND a.study_state = "graduated"'
             . ' GROUP BY st.employment_status',
             array($year, $schoolId, $advisorId)
         );
@@ -119,6 +126,13 @@ class AdvisorController extends Controller
         if ($alumni === null || (int) $alumni['school_id'] !== (int) $this->auth->schoolId()) {
             http_response_code(404);
             flash('error', 'ไม่พบข้อมูลศิษย์เก่ารายนี้ในสถานศึกษาของคุณ');
+            redirect('advisor');
+        }
+        // The roster no longer offers current students here, but a hand-typed
+        // id still could: the employment survey asks what someone is doing
+        // after finishing, which is not a question they can answer yet.
+        if (arr($alumni, 'study_state', 'graduated') === 'studying') {
+            flash('error', 'ผู้เรียนรายนี้ยังไม่สำเร็จการศึกษา จึงยังไม่ต้องกรอกแบบสำรวจภาวะการมีงานทำ');
             redirect('advisor');
         }
         // An advisor may only touch their own caseload; a school admin may

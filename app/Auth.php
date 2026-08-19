@@ -128,11 +128,17 @@ class Auth
             return array('ok' => false, 'error' => 'สถานศึกษาของคุณยังไม่เปิดใช้งานระบบ', 'user' => null);
         }
 
+        // Students and graduates are the same people in the same table and
+        // sign in identically; which screen they land on is decided by where
+        // they are in their studies. arr() covers the window between deploying
+        // this code and running the migration that adds the column.
+        $studying = arr($alumni, 'study_state', 'graduated') === 'studying';
+
         $this->startSession(array(
             'kind'        => 'alumni',
             'id'          => (int) $alumni['id'],
             'school_id'   => (int) $alumni['school_id'],
-            'role'        => 'alumni',
+            'role'        => $studying ? 'student' : 'alumni',
             'name'        => trim($alumni['title'] . $alumni['first_name'] . ' ' . $alumni['last_name']),
             'school_name' => $alumni['school_name'],
         ));
@@ -287,6 +293,8 @@ class Auth
     public function homeRoute()
     {
         switch ($this->role()) {
+            case 'student':
+                return 'student';
             case 'alumni':
                 return 'alumni';
             case 'advisor':

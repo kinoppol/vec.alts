@@ -127,7 +127,11 @@ class Repository
     public function schoolsWithCounts()
     {
         return $this->all(
-            'SELECT s.*, (SELECT COUNT(*) FROM `{p}alumni` a WHERE a.school_id = s.id) AS alumni_count'
+            'SELECT s.*,'
+            . ' (SELECT COUNT(*) FROM `{p}alumni` a WHERE a.school_id = s.id'
+            . '    AND a.study_state = "graduated") AS alumni_count,'
+            . ' (SELECT COUNT(*) FROM `{p}alumni` a WHERE a.school_id = s.id'
+            . '    AND a.study_state = "studying") AS student_count'
             . ' FROM `{p}schools` s ORDER BY FIELD(s.status, "pending", "active", "suspended"), s.name ASC'
         );
     }
@@ -338,6 +342,14 @@ class Repository
             $where[] = 'a.graduation_year = ?';
             $params[] = (int) $filters['graduation_year'];
         }
+        // Unset means both groups; the roster screen shows them together and
+        // the advisor screen asks for graduates only.
+        $studyState = (string) arr($filters, 'study_state', '');
+        $knownStates = study_states();
+        if ($studyState !== '' && isset($knownStates[$studyState])) {
+            $where[] = 'a.study_state = ?';
+            $params[] = $studyState;
+        }
         $search = trim((string) arr($filters, 'search', ''));
         if ($search !== '') {
             $where[] = '(a.student_code LIKE ? OR a.first_name LIKE ? OR a.last_name LIKE ?)';
@@ -401,6 +413,14 @@ class Repository
             $where[] = 'a.graduation_year = ?';
             $params[] = (int) $filters['graduation_year'];
         }
+        // Unset means both groups; the roster screen shows them together and
+        // the advisor screen asks for graduates only.
+        $studyState = (string) arr($filters, 'study_state', '');
+        $knownStates = study_states();
+        if ($studyState !== '' && isset($knownStates[$studyState])) {
+            $where[] = 'a.study_state = ?';
+            $params[] = $studyState;
+        }
         $search = trim((string) arr($filters, 'search', ''));
         if ($search !== '') {
             $where[] = '(a.student_code LIKE ? OR a.first_name LIKE ? OR a.last_name LIKE ?)';
@@ -437,8 +457,8 @@ class Repository
             'INSERT INTO `{p}alumni`'
             . ' (school_id, department_id, advisor_user_id, student_code, national_id_hash,'
             . '  national_id_last4, title, first_name, last_name, level, graduation_year,'
-            . '  phone, email, line_id, address, status, created_at, updated_at)'
-            . ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            . '  phone, email, line_id, address, status, study_state, created_at, updated_at)'
+            . ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             array(
                 (int) arr($data, 'school_id', 0),
                 arr($data, 'department_id') === null ? null : (int) $data['department_id'],
@@ -456,6 +476,7 @@ class Repository
                 arr($data, 'line_id', ''),
                 arr($data, 'address', null),
                 arr($data, 'status', 'active'),
+                arr($data, 'study_state', 'graduated') === 'studying' ? 'studying' : 'graduated',
                 $now, $now,
             )
         );
@@ -476,6 +497,48 @@ class Repository
                 (int) $id,
             )
         );
+    }
+
+    /**
+     * What a current student intends to do after graduating.
+     *
+     * @param int $id
+     * @param string $plan a key of graduation_plans(), or '' for not yet said
+     * @param string $note
+     */
+    public function updateAlumniPlan($id, $plan, $note = '')
+    {
+        $plans = graduation_plans();
+        if ($plan !== '' && !isset($plans[$plan])) {
+            $plan = '';
+        }
+        $this->run(
+            'UPDATE `{p}alumni` SET plan_after = ?, plan_note = ?, updated_at = ? WHERE id = ?',
+            array($plan, $note, date('Y-m-d H:i:s'), (int) $id)
+        );
+    }
+
+    /**
+     * Moves someone between the current-student and graduate groups.
+     *
+     * Graduating is a flag, not a copy: it is the same person and the same
+     * row, so nothing they have already filled in is lost when they finish.
+     *
+     * @param int $id
+     * @param string $state a key of study_states()
+     * @return bool false when the state is not one this system knows
+     */
+    public function setAlumniStudyState($id, $state)
+    {
+        $states = study_states();
+        if (!isset($states[$state])) {
+            return false;
+        }
+        $this->run(
+            'UPDATE `{p}alumni` SET study_state = ?, updated_at = ? WHERE id = ?',
+            array($state, date('Y-m-d H:i:s'), (int) $id)
+        );
+        return true;
     }
 
     public function setAlumniContactState($id, $state, $note = '')
@@ -618,7 +681,10 @@ class Repository
         $schoolId = (int) $schoolId;
         $year = (int) $year;
 
-        $where = 'a.school_id = ?';
+        // Current students are excluded everywhere in this section. They have
+        // not finished yet, so counting them would drag the placement rate
+        // down against a denominator that cannot answer the survey.
+        $where = 'a.school_id = ? AND a.study_state = "graduated"';
         $params = array($schoolId);
         if ($graduationYear > 0) {
             $where .= ' AND a.graduation_year = ?';
@@ -690,7 +756,11 @@ class Repository
             . '   ("employed_match","employed_other","freelance","study") THEN 1 ELSE 0 END) AS placed,'
             . ' SUM(CASE WHEN st.is_draft = 0 THEN 1 ELSE 0 END) AS answered'
             . ' FROM `{p}departments` d'
+            // The graduate test belongs in the JOIN, not the WHERE: moved to
+            // the WHERE it would turn this into an inner join and drop any
+            // department whose students have all yet to graduate.
             . ' LEFT JOIN `{p}alumni` a ON a.department_id = d.id'
+            . '   AND a.study_state = "graduated"'
             . ' LEFT JOIN `{p}alumni_status` st ON st.alumni_id = a.id AND st.survey_year = ?'
             . ' WHERE d.school_id = ?' . $extra
             . ' GROUP BY d.id, d.name ORDER BY d.sort_order ASC, d.name ASC',
@@ -727,6 +797,7 @@ class Repository
             . ' FROM `{p}alumni` a'
             . ' LEFT JOIN `{p}alumni_status` st ON st.alumni_id = a.id'
             . ' WHERE a.school_id = ? AND a.graduation_year > 0'
+            . '   AND a.study_state = "graduated"'
             . ' GROUP BY a.graduation_year ORDER BY a.graduation_year DESC'
             . ' LIMIT ' . (int) $limit,
             array((int) $schoolId)
@@ -753,7 +824,9 @@ class Repository
     {
         $rows = $this->all(
             'SELECT DISTINCT graduation_year FROM `{p}alumni`'
-            . ' WHERE school_id = ? AND graduation_year > 0 ORDER BY graduation_year DESC',
+            . ' WHERE school_id = ? AND graduation_year > 0'
+            . '   AND study_state = "graduated"'
+            . ' ORDER BY graduation_year DESC',
             array((int) $schoolId)
         );
         $out = array();
@@ -773,7 +846,12 @@ class Repository
         $schools = (int) $this->scalar('SELECT COUNT(*) FROM `{p}schools`');
         $active = (int) $this->scalar('SELECT COUNT(*) FROM `{p}schools` WHERE status = ?', array('active'));
         $pending = (int) $this->scalar('SELECT COUNT(*) FROM `{p}schools` WHERE status = ?', array('pending'));
-        $alumni = (int) $this->scalar('SELECT COUNT(*) FROM `{p}alumni`');
+        $alumni = (int) $this->scalar(
+            'SELECT COUNT(*) FROM `{p}alumni` WHERE study_state = "graduated"'
+        );
+        $students = (int) $this->scalar(
+            'SELECT COUNT(*) FROM `{p}alumni` WHERE study_state = "studying"'
+        );
         $answered = (int) $this->scalar(
             'SELECT COUNT(*) FROM `{p}alumni_status` WHERE survey_year = ? AND is_draft = 0',
             array($year)
@@ -789,6 +867,7 @@ class Repository
             'active_schools'  => $active,
             'pending_schools' => $pending,
             'alumni'          => $alumni,
+            'students'        => $students,
             'answered'        => $answered,
             'placed'          => $placed,
             'placed_pct'      => $answered > 0 ? pct($placed, $answered) : '0.0',

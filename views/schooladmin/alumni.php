@@ -10,11 +10,15 @@
  * @var array $departments
  * @var array $advisors
  */
-$cols = 'grid-template-columns:1.5fr 1fr .8fr 1fr 1fr';
+$cols = 'grid-template-columns:1.5fr 1fr .8fr 1fr 1fr .9fr';
 $pages = (int) ceil($total / max(1, $perPage));
+$studyFilter = (string) arr($filters, 'study_state', '');
 ?>
-<h1 class="page-title">ข้อมูลศิษย์เก่า</h1>
-<p class="page-sub">รายชื่อผู้สำเร็จการศึกษาทั้งหมดของสถานศึกษา · ปีสำรวจ <?php echo e($filters['survey_year']); ?></p>
+<h1 class="page-title">ข้อมูลศิษย์เก่าและศิษย์ปัจจุบัน</h1>
+<p class="page-sub">
+  รายชื่อทั้งหมดของสถานศึกษา ทั้งผู้ที่กำลังศึกษาและผู้สำเร็จการศึกษา ·
+  ปีสำรวจ <?php echo e($filters['survey_year']); ?>
+</p>
 
 <div class="table">
   <form class="table-toolbar" method="get" action="<?php echo e(url()); ?>">
@@ -31,6 +35,14 @@ $pages = (int) ceil($total / max(1, $perPage));
           </option>
         <?php endforeach; ?>
       </select>
+      <select class="input input-sm" name="study" data-auto-submit style="width:150px">
+        <option value="">ทุกกลุ่ม</option>
+        <?php foreach (study_states() as $code => $label): ?>
+          <option value="<?php echo e($code); ?>" <?php echo $studyFilter === $code ? 'selected' : ''; ?>>
+            <?php echo e($label); ?>
+          </option>
+        <?php endforeach; ?>
+      </select>
       <select class="input input-sm" name="state" data-auto-submit style="width:140px">
         <option value="">ทุกสถานะ</option>
         <option value="pending" <?php echo $filters['state'] === 'pending' ? 'selected' : ''; ?>>รอติดตาม</option>
@@ -42,18 +54,25 @@ $pages = (int) ceil($total / max(1, $perPage));
   </form>
 
   <div class="table-head" style="<?php echo $cols; ?>">
-    <span>ชื่อ - รหัส</span><span>สาขา</span><span>ปีจบ</span><span>ครูที่ปรึกษา</span><span>สถานะ</span>
+    <span>ชื่อ - รหัส</span><span>สาขา</span><span>ปีจบ</span><span>ครูที่ปรึกษา</span>
+    <span>สถานะสำรวจ</span><span>กลุ่ม</span>
   </div>
 
   <?php if (!$rows): ?>
     <div class="table-empty">
-      ยังไม่มีข้อมูลศิษย์เก่า —
+      ยังไม่มีข้อมูล —
       <a href="<?php echo e(url('schooladmin/import')); ?>">นำเข้าจากไฟล์ CSV</a>
     </div>
   <?php else: ?>
     <?php foreach ($rows as $row): ?>
       <?php
-      if ($row['employment_status'] === null) {
+      $studying = arr($row, 'study_state', 'graduated') === 'studying';
+      if ($studying) {
+          // The employment survey does not apply until they have finished, so
+          // showing "waiting for a response" against a current student would
+          // read as a chase that nobody owes.
+          $badge = array('wait', 'ยังไม่ถึงรอบสำรวจ');
+      } elseif ($row['employment_status'] === null) {
           $badge = array('wait', 'รอติดตาม');
       } elseif ((int) $row['is_draft'] === 1) {
           $badge = array('warn', 'บันทึกร่าง');
@@ -70,6 +89,25 @@ $pages = (int) ceil($total / max(1, $perPage));
         <span class="cell-dim"><?php echo e((int) $row['graduation_year'] > 0 ? $row['graduation_year'] : '—'); ?></span>
         <span class="cell-dim"><?php echo e($row['advisor_name'] !== null ? $row['advisor_name'] : '—'); ?></span>
         <span><span class="badge badge-<?php echo e($badge[0]); ?>"><?php echo e($badge[1]); ?></span></span>
+        <span>
+          <form method="post" action="<?php echo e(url('schooladmin/alumni-state')); ?>">
+            <?php echo csrf_field(); ?>
+            <input type="hidden" name="id" value="<?php echo e($row['id']); ?>">
+            <?php if ($studying): ?>
+              <input type="hidden" name="study_state" value="graduated">
+              <button type="submit" class="btn btn-sm"
+                      data-confirm="ยืนยันเปลี่ยน <?php echo e($row['student_code']); ?> เป็นสำเร็จการศึกษา? ข้อมูลที่กรอกไว้จะยังอยู่ครบ">
+                🎓 จบแล้ว
+              </button>
+            <?php else: ?>
+              <input type="hidden" name="study_state" value="studying">
+              <button type="submit" class="btn btn-sm"
+                      data-confirm="ย้าย <?php echo e($row['student_code']); ?> กลับไปเป็นศิษย์ปัจจุบัน? รายการนี้จะหายไปจากรายงานภาวะการมีงานทำ">
+                ↩ ยังไม่จบ
+              </button>
+            <?php endif; ?>
+          </form>
+        </span>
       </div>
     <?php endforeach; ?>
   <?php endif; ?>
@@ -87,6 +125,7 @@ $pages = (int) ceil($total / max(1, $perPage));
           <a href="<?php echo e(url('schooladmin/alumni', array(
               'page' => $i, 'q' => $filters['search'],
               'state' => $filters['state'], 'dept' => $filters['department_id'],
+              'study' => $studyFilter,
           ))); ?>"><?php echo e($i); ?></a>
         <?php endif; ?>
       <?php endfor; ?>

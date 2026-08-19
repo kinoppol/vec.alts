@@ -21,6 +21,7 @@ require VEC_APP . '/controllers/SchoolAdminController.php';
 require VEC_APP . '/controllers/CentralAdminController.php';
 require VEC_APP . '/controllers/MigrationController.php';
 require VEC_APP . '/controllers/AccountController.php';
+require VEC_APP . '/controllers/StudentController.php';
 
 /**
  * route => array(ControllerClass, method)
@@ -34,6 +35,8 @@ $routes = array(
 
     'account/profile'           => array('AccountController', 'profile'),
     'account/password'          => array('AccountController', 'password'),
+
+    'student'                   => array('StudentController', 'form'),
 
     'alumni'                    => array('AlumniController', 'form'),
     'alumni/history'            => array('AlumniController', 'history'),
@@ -52,6 +55,7 @@ $routes = array(
     'schooladmin/user-status'   => array('SchoolAdminController', 'userStatus'),
     'schooladmin/departments'   => array('SchoolAdminController', 'departments'),
     'schooladmin/alumni'        => array('SchoolAdminController', 'alumni'),
+    'schooladmin/alumni-state'  => array('SchoolAdminController', 'alumniState'),
     'schooladmin/import'        => array('SchoolAdminController', 'import'),
 
     'centraladmin'              => array('CentralAdminController', 'index'),

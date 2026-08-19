@@ -14,10 +14,14 @@ $tab = isset($tab) ? $tab : '';
 $old = isset($old) ? $old : array();
 
 $kinds = array(
+    // Students and graduates sign in with exactly the same two credentials;
+    // the system reads which of the two they are from their record, so
+    // splitting this into a third card would only ask a question that has no
+    // effect on what happens next.
     'alumni' => array(
         'icon'  => '🎓',
-        'label' => 'ศิษย์เก่า',
-        'desc'  => 'ผู้สำเร็จการศึกษา · ใช้รหัสนักศึกษาและเลขบัตรประชาชน',
+        'label' => 'ศิษย์เก่า / ศิษย์ปัจจุบัน',
+        'desc'  => 'ผู้สำเร็จการศึกษาและผู้ที่กำลังศึกษา · ใช้รหัสนักศึกษาและเลขบัตรประชาชน',
     ),
     'staff' => array(
         'icon'  => '🏫',
@@ -55,15 +59,15 @@ $kinds = array(
 
         <?php echo $this->partial('layout/flash'); ?>
 
-        <div class="choice-list">
+        <div class="kind-list">
           <?php foreach ($kinds as $key => $kind): ?>
-            <a class="choice" href="<?php echo e(url('login', array('tab' => $key))); ?>">
-              <span class="choice-icon" aria-hidden="true"><?php echo $kind['icon']; ?></span>
-              <span class="choice-text">
-                <span class="choice-title"><?php echo e($kind['label']); ?></span>
-                <span class="choice-desc"><?php echo e($kind['desc']); ?></span>
+            <a class="kind" href="<?php echo e(url('login', array('tab' => $key))); ?>">
+              <span class="kind-icon" aria-hidden="true"><?php echo $kind['icon']; ?></span>
+              <span>
+                <span class="kind-title"><?php echo e($kind['label']); ?></span>
+                <span class="kind-desc"><?php echo e($kind['desc']); ?></span>
               </span>
-              <span class="choice-go" aria-hidden="true">→</span>
+              <span class="kind-go" aria-hidden="true">→</span>
             </a>
           <?php endforeach; ?>
         </div>

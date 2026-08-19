@@ -37,7 +37,19 @@ $result = isset($result) ? $result : null;
     </div>
 
     <div class="field">
-      <label class="label" for="graduation_year">ปีที่สำเร็จการศึกษา (พ.ศ.) *</label>
+      <label class="label" for="study_state">นำเข้าเป็นกลุ่มใด *</label>
+      <select class="input" id="study_state" name="study_state" required>
+        <option value="graduated">ศิษย์เก่า (สำเร็จการศึกษาแล้ว)</option>
+        <option value="studying">ศิษย์ปัจจุบัน (กำลังศึกษา)</option>
+      </select>
+      <div class="hint">
+        ศิษย์ปัจจุบันจะกรอกช่องทางติดต่อและความตั้งใจหลังจบไว้ล่วงหน้าได้
+        แต่ยังไม่นับรวมในรายงานภาวะการมีงานทำ จนกว่าจะเปลี่ยนเป็นสำเร็จการศึกษา
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="label" for="graduation_year">ปีที่สำเร็จการศึกษา / คาดว่าจะสำเร็จ (พ.ศ.) *</label>
       <input class="input" type="number" id="graduation_year" name="graduation_year"
              value="<?php echo e(current_academic_year()); ?>" min="2500" max="2700" required>
       <div class="hint">ใช้เมื่อไฟล์ไม่ได้ระบุปีไว้ในคอลัมน์</div>

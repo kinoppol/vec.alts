@@ -337,20 +337,23 @@ textarea.input { min-height: 80px; resize: vertical; }
 }
 .auth-change:hover { color: var(--primary); }
 
-.choice-list { display: grid; gap: 12px; margin-bottom: 4px; }
-.choice {
+/* Named "kind" rather than "choice": the survey form further down already owns
+   .choice for its radio cards, and two components sharing a class silently
+   leak each other's padding, gaps and hover colours. */
+.kind-list { display: grid; gap: 12px; margin-bottom: 4px; }
+.kind {
   display: flex; align-items: center; gap: 14px; padding: 18px;
   border: 1px solid var(--border); border-radius: 14px;
   background: var(--surface); color: var(--text); text-align: left;
   transition: border-color .15s, background .15s;
 }
-.choice:hover { border-color: var(--primary); background: var(--primary-soft-2); color: var(--text); }
-.choice:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
-.choice-icon { flex: none; font-size: 26px; line-height: 1; }
-.choice-title { display: block; font-size: 16px; font-weight: 700; margin-bottom: 3px; }
-.choice-desc { display: block; font-size: 12.5px; color: var(--text-dim); line-height: 1.5; }
-.choice-go { flex: none; margin-left: auto; color: var(--text-dim); font-size: 18px; }
-.choice:hover .choice-go { color: var(--primary); }
+.kind:hover { border-color: var(--primary); background: var(--primary-soft-2); color: var(--text); }
+.kind:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.kind-icon { flex: none; font-size: 26px; line-height: 1; }
+.kind-title { display: block; font-size: 16px; font-weight: 700; margin-bottom: 3px; }
+.kind-desc { display: block; font-size: 12.5px; color: var(--text-dim); line-height: 1.5; }
+.kind-go { flex: none; margin-left: auto; color: var(--text-dim); font-size: 18px; }
+.kind:hover .kind-go { color: var(--primary); }
 
 /* ------------------------------------------------------------- app shell */
 

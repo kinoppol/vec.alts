@@ -312,6 +312,61 @@ function employment_label($code)
 }
 
 /**
+ * Where a person is in their studies. Stored as VARCHAR and checked here,
+ * like every other status in this application, so adding one never needs a
+ * migration.
+ *
+ * @return array code => label
+ */
+function study_states()
+{
+    return array(
+        'studying'  => 'กำลังศึกษา',
+        'graduated' => 'สำเร็จการศึกษา',
+    );
+}
+
+/**
+ * @param string $state
+ * @return string
+ */
+function study_state_label($state)
+{
+    $all = study_states();
+    return isset($all[$state]) ? $all[$state] : $all['graduated'];
+}
+
+/**
+ * What a current student means to do once they finish.
+ *
+ * This is an intention, not an outcome: the employment survey in
+ * alumni_status only starts after graduation. Keeping them apart is what lets
+ * the dashboard say "of those who have graduated, this many are working"
+ * without a student's plan being counted as a job.
+ *
+ * @return array code => array('label','icon')
+ */
+function graduation_plans()
+{
+    return array(
+        'work'      => array('label' => 'ตั้งใจทำงาน', 'icon' => '💼'),
+        'study'     => array('label' => 'ตั้งใจศึกษาต่อ', 'icon' => '🎓'),
+        'freelance' => array('label' => 'ตั้งใจประกอบอาชีพอิสระ', 'icon' => '🚀'),
+        'undecided' => array('label' => 'ยังไม่แน่ใจ', 'icon' => '🤔'),
+    );
+}
+
+/**
+ * @param string $code
+ * @return string
+ */
+function graduation_plan_label($code)
+{
+    $all = graduation_plans();
+    return isset($all[$code]) ? $all[$code]['label'] : 'ยังไม่ระบุ';
+}
+
+/**
  * Roles that can log in through the staff tab.
  * @return array
  */
@@ -335,6 +390,9 @@ function role_label($role)
     if ($role === 'alumni') {
         return 'ศิษย์เก่า';
     }
+    if ($role === 'student') {
+        return 'ศิษย์ปัจจุบัน';
+    }
     return isset($roles[$role]) ? $roles[$role] : $role;
 }
 
@@ -348,6 +406,11 @@ function app_menu($role)
 {
     $menu = array();
     switch ($role) {
+        case 'student':
+            $menu = array(
+                array('route' => 'student', 'label' => 'ข้อมูลของฉัน'),
+            );
+            break;
         case 'alumni':
             $menu = array(
                 array('route' => 'alumni', 'label' => 'ข้อมูลของฉัน'),
@@ -388,10 +451,11 @@ function app_menu($role)
     }
 
     // Appended rather than repeated in each branch: every role that signs in
-    // with a password owns an account it can maintain itself. Alumni are the
-    // exception — they authenticate with their national ID, and their contact
-    // details live on their own survey screen.
-    if ($menu && $role !== 'alumni') {
+    // with a password owns an account it can maintain itself. Students and
+    // alumni are the exception — they authenticate with their national ID,
+    // and their contact details live on their own screen.
+    $staff = staff_roles();
+    if ($menu && isset($staff[$role])) {
         $menu[] = array('route' => 'account/profile', 'label' => 'โปรไฟล์ของฉัน');
         $menu[] = array('route' => 'account/password', 'label' => 'เปลี่ยนรหัสผ่าน');
     }
