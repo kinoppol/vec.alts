@@ -27,7 +27,9 @@ $result = isset($result) ? $result : null;
 <?php endif; ?>
 
 <div class="card card-lg" style="max-width:720px;margin-bottom:20px">
-  <form method="post" action="<?php echo e(url('schooladmin/import')); ?>" enctype="multipart/form-data">
+  <form method="post" action="<?php echo e(url('schooladmin/import')); ?>" enctype="multipart/form-data"
+        data-busy="กำลังนำเข้าข้อมูลศิษย์เก่า"
+        data-busy-steps="ระบบกำลังอ่านไฟล์และสร้างบัญชีให้ศิษย์เก่าทีละราย ไฟล์ที่มีรายชื่อจำนวนมากจะใช้เวลานานขึ้น">
     <?php echo csrf_field(); ?>
 
     <div class="field">

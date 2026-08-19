@@ -158,7 +158,9 @@ foreach ($schools as $s) {
   <div class="card card-lg" style="max-width:720px">
     <h3 style="font-size:16px;font-weight:700;margin-bottom:18px">ตั้งค่าการโอนข้อมูล</h3>
 
-    <form method="post" action="<?php echo e(url('centraladmin/import-users')); ?>">
+    <form method="post" action="<?php echo e(url('centraladmin/import-users')); ?>"
+          data-busy="กำลังโอนข้อมูลจากระบบ RMS"
+          data-busy-steps="ขั้นตอน: ดึงรายชื่อจากระบบ RMS → สร้าง/ปรับปรุงบัญชีผู้ใช้ → ดาวน์โหลดรูปโปรไฟล์ ทั้งหมดนี้ทำงานอยู่บนเซิร์ฟเวอร์ อาจใช้เวลาหลายสิบวินาทีเมื่อมีผู้ใช้จำนวนมาก">
       <?php echo csrf_field(); ?>
 
       <!-- The institution is chosen above, because it also decides the source. -->
@@ -209,8 +211,10 @@ foreach ($schools as $s) {
       </div>
 
       <div class="form-actions" style="justify-content:flex-start">
-        <button type="submit" name="action" value="preview" class="btn">ตรวจสอบข้อมูลก่อน</button>
+        <button type="submit" name="action" value="preview" class="btn"
+                data-busy-message="กำลังตรวจสอบข้อมูลจากระบบ RMS">ตรวจสอบข้อมูลก่อน</button>
         <button type="submit" name="action" value="import" class="btn btn-primary"
+                data-busy-message="กำลังโอนข้อมูลจากระบบ RMS"
                 data-confirm="เริ่มโอนข้อมูลผู้ใช้จากระบบ RMS?">เริ่มโอนข้อมูล</button>
       </div>
     </form>
@@ -220,7 +224,9 @@ foreach ($schools as $s) {
       <p class="hint" style="margin-bottom:10px">
         ยังมีผู้ใช้ <?php echo e($pendingAvatars); ?> คนที่ยังไม่มีรูปโปรไฟล์ในระบบ
       </p>
-      <form method="post" action="<?php echo e(url('centraladmin/import-users')); ?>">
+      <form method="post" action="<?php echo e(url('centraladmin/import-users')); ?>"
+            data-busy="กำลังดาวน์โหลดรูปโปรไฟล์"
+            data-busy-steps="ระบบดาวน์โหลดรูปได้ครั้งละประมาณ 20 วินาที ถ้ายังไม่ครบจะแจ้งให้กดต่อได้อีกครั้ง">
         <?php echo csrf_field(); ?>
         <input type="hidden" name="school_id" value="<?php echo e($selectedSchool); ?>">
         <button type="submit" name="action" value="avatars" class="btn">ดาวน์โหลดรูปที่เหลือ</button>

@@ -118,6 +118,125 @@
         }
     }
 
+    /*
+     * Progress indicator for forms that take a long time on the server.
+     *
+     * The form still submits normally — this only covers the page so the
+     * operator can see something is happening and cannot start it twice.
+     * Submit buttons are deliberately NOT disabled: a disabled button is left
+     * out of the submitted data, which would drop the name/value that says
+     * which action was asked for.
+     */
+    function initBusyForms() {
+        var forms = document.querySelectorAll('form[data-busy]');
+        if (!forms.length) {
+            return;
+        }
+
+        var overlay = null;
+        var timer = null;
+
+        function buildOverlay(message, steps) {
+            var el = document.createElement('div');
+            el.className = 'busy-overlay';
+            el.setAttribute('role', 'alert');
+            el.setAttribute('aria-live', 'assertive');
+            el.setAttribute('aria-busy', 'true');
+
+            var box = document.createElement('div');
+            box.className = 'busy-box';
+
+            var spinner = document.createElement('div');
+            spinner.className = 'spinner';
+            box.appendChild(spinner);
+
+            var title = document.createElement('div');
+            title.className = 'busy-title';
+            title.textContent = message;
+            box.appendChild(title);
+
+            var note = document.createElement('div');
+            note.className = 'busy-note';
+            note.textContent = 'กรุณาอย่าปิดหรือรีเฟรชหน้านี้จนกว่าจะเสร็จ';
+            box.appendChild(note);
+
+            var track = document.createElement('div');
+            track.className = 'busy-track';
+            track.appendChild(document.createElement('span'));
+            box.appendChild(track);
+
+            var elapsed = document.createElement('div');
+            elapsed.className = 'busy-elapsed';
+            elapsed.textContent = 'ใช้เวลาไปแล้ว 0 วินาที';
+            box.appendChild(elapsed);
+
+            if (steps) {
+                var list = document.createElement('div');
+                list.className = 'busy-steps';
+                list.textContent = steps;
+                box.appendChild(list);
+            }
+
+            el.appendChild(box);
+            document.body.appendChild(el);
+
+            // A real count of how long the operator has been waiting. The
+            // stages themselves happen on the server, so no attempt is made
+            // to guess which one is running.
+            var started = new Date().getTime();
+            timer = window.setInterval(function () {
+                var seconds = Math.round((new Date().getTime() - started) / 1000);
+                elapsed.textContent = 'ใช้เวลาไปแล้ว ' + seconds + ' วินาที';
+            }, 1000);
+
+            return el;
+        }
+
+        function hideOverlay() {
+            if (timer) {
+                window.clearInterval(timer);
+                timer = null;
+            }
+            if (overlay && overlay.parentNode) {
+                overlay.parentNode.removeChild(overlay);
+            }
+            overlay = null;
+        }
+
+        for (var i = 0; i < forms.length; i++) {
+            (function (form) {
+                var pending = false;
+                var pressed = null;
+
+                // Remember which button was used, so its own message wins.
+                var buttons = form.querySelectorAll('button[type="submit"], input[type="submit"]');
+                for (var b = 0; b < buttons.length; b++) {
+                    buttons[b].addEventListener('click', function () {
+                        pressed = this;
+                    });
+                }
+
+                form.addEventListener('submit', function (ev) {
+                    if (pending) {
+                        // Already running; ignore a second attempt.
+                        ev.preventDefault();
+                        return;
+                    }
+                    var message = form.getAttribute('data-busy');
+                    if (pressed && pressed.getAttribute('data-busy-message')) {
+                        message = pressed.getAttribute('data-busy-message');
+                    }
+                    pending = true;
+                    overlay = buildOverlay(message, form.getAttribute('data-busy-steps'));
+                });
+            }(forms[i]));
+        }
+
+        // Returning via the back button can restore the page from cache with
+        // the overlay still on it.
+        window.addEventListener('pageshow', hideOverlay);
+    }
+
     /* Confirmation prompts for destructive buttons. */
     function initConfirms() {
         var nodes = document.querySelectorAll('[data-confirm]');
@@ -156,5 +275,6 @@
         initPasswordReveal();
         initConfirms();
         initAutoSubmit();
+        initBusyForms();
     });
 }());
