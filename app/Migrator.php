@@ -127,6 +127,70 @@ class Migrator
     }
 
     /**
+     * Highest version present on disk, read from filenames only.
+     *
+     * Deliberately does not include the migration files the way available()
+     * does: this runs on every request, so it must stay to one directory scan.
+     *
+     * @return string '' when the directory is empty
+     */
+    public function latestAvailableVersion()
+    {
+        if (!is_dir($this->dir)) {
+            return '';
+        }
+        $files = glob($this->dir . DIRECTORY_SEPARATOR . '*.php');
+        if (!is_array($files) || !$files) {
+            return '';
+        }
+        $latest = '';
+        foreach ($files as $file) {
+            $parts = explode('_', basename($file, '.php'), 2);
+            if ($parts[0] !== '' && strcmp($parts[0], $latest) > 0) {
+                $latest = $parts[0];
+            }
+        }
+        return $latest;
+    }
+
+    /**
+     * Highest version recorded as applied.
+     *
+     * @return string '' when nothing has been applied, or the bookkeeping
+     *                table does not exist yet
+     */
+    public function latestAppliedVersion()
+    {
+        try {
+            $row = $this->db->query(
+                'SELECT MAX(`version`) FROM `' . $this->table() . '`'
+            )->fetch(PDO::FETCH_NUM);
+        } catch (PDOException $e) {
+            // No migrations table means nothing has ever been applied.
+            return '';
+        }
+        return ($row === false || $row[0] === null) ? '' : (string) $row[0];
+    }
+
+    /**
+     * Whether the database is behind the code.
+     *
+     * Costs one directory scan and one indexed query, so it is cheap enough
+     * to check on every request. Deploying new code without running the
+     * migrations would otherwise surface as raw SQL errors on public pages.
+     *
+     * @return bool
+     */
+    public function isOutdated()
+    {
+        $available = $this->latestAvailableVersion();
+        if ($available === '') {
+            return false;
+        }
+        return strcmp($available, $this->latestAppliedVersion()) > 0;
+    }
+
+    /**
      * @return array version => row
      */
     public function applied()

@@ -78,6 +78,34 @@ if ($route === '') {
     $route = 'home';
 }
 
+/*
+ * Stop before the database is queried when the code is newer than the schema.
+ *
+ * Deploying a release without running its migrations used to surface as a raw
+ * SQL error on whatever page was hit first — including the public landing
+ * page. The routes below stay open so an administrator can still sign in and
+ * apply the migrations; everything else gets a plain "being updated" page.
+ */
+$migrationSafeRoutes = array('login', 'logout', 'admin/migrations');
+
+if (!in_array($route, $migrationSafeRoutes, true)) {
+    $schemaCheck = new Migrator($pdo, VEC_ROOT . '/migrations', $config['db']['prefix']);
+    if ($schemaCheck->isOutdated()) {
+        // The person who can fix this goes straight to the tool that fixes it.
+        if ($auth->is('centraladmin')) {
+            redirect('admin/migrations');
+        }
+        http_response_code(503);
+        header('Retry-After: 3600');
+        $view->render(
+            'errors/migration-required',
+            array('title' => 'ระบบกำลังปรับปรุง', 'route' => $route),
+            'layout/blank'
+        );
+        exit;
+    }
+}
+
 // Signed-in visitors landing on the marketing page go straight to their work.
 if ($route === 'home' && $auth->check()) {
     redirect($auth->homeRoute());
