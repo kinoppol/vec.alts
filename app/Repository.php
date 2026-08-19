@@ -746,6 +746,131 @@ class Repository
         return $this->lastId();
     }
 
+    /**
+     * Creates or refreshes a student transferred from an external system.
+     *
+     * Located by the source system's own id first, then by student code, so a
+     * repeat transfer updates the same person and someone already entered by
+     * hand or imported from CSV is adopted rather than duplicated.
+     *
+     * Left alone on update, because a person here decides them and the source
+     * knows nothing about them: created_at, study_state (an administrator may
+     * have graduated this student already), advisor_user_id, status and the
+     * contact fields the student filled in themselves.
+     *
+     * @param array $data
+     * @return array array('id'=>int, 'created'=>bool)
+     */
+    public function upsertImportedStudent($data)
+    {
+        $now = date('Y-m-d H:i:s');
+        $schoolId = (int) arr($data, 'school_id', 0);
+        $externalId = (string) arr($data, 'external_id', '');
+        $studentCode = (string) arr($data, 'student_code', '');
+        $nationalId = (string) arr($data, 'national_id', '');
+
+        $existing = null;
+        if ($externalId !== '') {
+            $existing = $this->one(
+                'SELECT * FROM `{p}alumni`'
+                . ' WHERE school_id = ? AND external_source = ? AND external_id = ?',
+                array($schoolId, arr($data, 'external_source', ''), $externalId)
+            );
+        }
+        if ($existing === null) {
+            $existing = $this->one(
+                'SELECT * FROM `{p}alumni` WHERE school_id = ? AND student_code = ?',
+                array($schoolId, $studentCode)
+            );
+        }
+
+        $columns = array(
+            'department_id'     => arr($data, 'department_id'),
+            'external_source'   => arr($data, 'external_source', ''),
+            'external_id'       => $externalId,
+            'student_code'      => $studentCode,
+            'first_name'        => arr($data, 'first_name', ''),
+            'last_name'         => arr($data, 'last_name', ''),
+            'gender'            => arr($data, 'gender', ''),
+            'level'             => arr($data, 'level', ''),
+            'group_code'        => arr($data, 'group_code', ''),
+            'group_name'        => arr($data, 'group_name', ''),
+            'grade_name'        => arr($data, 'grade_name', ''),
+            'major_name'        => arr($data, 'major_name', ''),
+            'status_code'       => arr($data, 'status_code', ''),
+            'status_name'       => arr($data, 'status_name', ''),
+            'entrance_year'     => (int) arr($data, 'entrance_year', 0),
+            'entrance_semester' => (int) arr($data, 'entrance_semester', 0),
+            'gpax'              => arr($data, 'gpax'),
+            'email'             => arr($data, 'email', ''),
+            'phone'             => arr($data, 'phone', ''),
+            'updated_at'        => $now,
+        );
+
+        if ($existing !== null) {
+            // Hashing is the slow part of the whole transfer. The stored last
+            // four digits say whether the number actually changed, so a repeat
+            // run does no bcrypt work at all.
+            $needsHash = $nationalId !== ''
+                && ((string) $existing['national_id_hash'] === ''
+                    || (string) $existing['national_id_last4'] !== substr($nationalId, -4));
+
+            if ($needsHash) {
+                $columns['national_id_hash'] = password_hash($nationalId, PASSWORD_DEFAULT, array('cost' => 10));
+                $columns['national_id_last4'] = substr($nationalId, -4);
+            }
+
+            $set = array();
+            $params = array();
+            foreach ($columns as $column => $value) {
+                $set[] = '`' . $column . '` = ?';
+                $params[] = $value;
+            }
+            $params[] = (int) $existing['id'];
+
+            $this->run(
+                'UPDATE `{p}alumni` SET ' . implode(', ', $set) . ' WHERE id = ?',
+                $params
+            );
+            return array('id' => (int) $existing['id'], 'created' => false);
+        }
+
+        $columns['school_id'] = $schoolId;
+        $columns['national_id_hash'] = $nationalId === ''
+            ? ''
+            : password_hash($nationalId, PASSWORD_DEFAULT, array('cost' => 10));
+        $columns['national_id_last4'] = $nationalId === '' ? '' : substr($nationalId, -4);
+        // Set once, at creation: from here on it is the institution's to change.
+        $columns['study_state'] = 'studying';
+        $columns['status'] = 'active';
+        $columns['created_at'] = $now;
+
+        $names = array_keys($columns);
+        $placeholders = array_fill(0, count($names), '?');
+        $this->run(
+            'INSERT INTO `{p}alumni` (`' . implode('`, `', $names) . '`)'
+            . ' VALUES (' . implode(', ', $placeholders) . ')',
+            array_values($columns)
+        );
+        return array('id' => $this->lastId(), 'created' => true);
+    }
+
+    /**
+     * Departments of one institution keyed by lower-cased name, for matching
+     * an incoming major without a query per row.
+     *
+     * @param int $schoolId
+     * @return array
+     */
+    public function departmentMap($schoolId)
+    {
+        $map = array();
+        foreach ($this->departments($schoolId) as $department) {
+            $map[mb_strtolower($department['name'])] = (int) $department['id'];
+        }
+        return $map;
+    }
+
     public function updateAlumniContact($id, $data)
     {
         $this->run(

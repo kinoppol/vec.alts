@@ -445,6 +445,7 @@ function app_menu($role)
                 array('route' => 'centraladmin/requests', 'label' => 'คำขอสมัคร'),
                 array('route' => 'centraladmin/users', 'label' => 'ผู้ใช้งานระบบ'),
                 array('route' => 'centraladmin/import-users', 'label' => 'โอนข้อมูลผู้ใช้'),
+                array('route' => 'centraladmin/import-students', 'label' => 'โอนข้อมูลนักเรียน'),
                 array('route' => 'admin/migrations', 'label' => 'Migration ฐานข้อมูล'),
                 array('route' => 'centraladmin/settings', 'label' => 'ตั้งค่าระบบ'),
             );

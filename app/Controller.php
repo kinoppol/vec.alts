@@ -123,6 +123,42 @@ abstract class Controller
     }
 
     /**
+     * Ends the request with a JSON body.
+     *
+     * The shape is always {success, data, message}, so the browser side can
+     * treat every endpoint the same way.
+     *
+     * @param bool $success
+     * @param array $data
+     * @param string $message
+     */
+    protected function json($success, $data = array(), $message = '')
+    {
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+            header('Cache-Control: no-store');
+            header('X-Content-Type-Options: nosniff');
+        }
+        echo json_encode(
+            array('success' => (bool) $success, 'data' => $data, 'message' => $message),
+            JSON_UNESCAPED_UNICODE
+        );
+        exit;
+    }
+
+    /**
+     * @param string $message
+     * @param array $data
+     */
+    protected function jsonError($message, $data = array())
+    {
+        $this->json(false, $data, $message);
+    }
+
+    /**
      * Streams an array of rows as a CSV download, BOM-prefixed so Excel on
      * Windows reads Thai text correctly.
      *

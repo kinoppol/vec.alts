@@ -293,6 +293,83 @@ class CentralAdminController extends Controller
         redirect($this->auth->homeRoute());
     }
 
+    /**
+     * Transfers current students from RMS.
+     *
+     * The list runs to thousands, far more than one request can hash and
+     * store, so the browser drives it: it asks for the total, then requests
+     * one slice at a time and reports real progress. Each slice is its own
+     * request, so no single one can outrun max_execution_time.
+     */
+    public function importStudents()
+    {
+        $this->auth->require_role('centraladmin');
+
+        $action = is_post() ? post('action') : query('action');
+        $schoolId = is_post() ? post_int('school_id', 0) : query_int('school_id', 0);
+
+        // The JSON actions the browser loop calls.
+        if ($action === 'count' || $action === 'sync_batch') {
+            if (!csrf_check()) {
+                $this->jsonError('คำขอหมดอายุ กรุณาโหลดหน้านี้ใหม่');
+            }
+            if ($schoolId < 1) {
+                $this->jsonError('กรุณาเลือกสถานศึกษาก่อน');
+            }
+            $school = $this->repo->school($schoolId);
+            if ($school === null) {
+                $this->jsonError('ไม่พบสถานศึกษาที่เลือก');
+            }
+
+            $baseUrl = $this->repo->rmsBaseUrlFor($schoolId);
+            if (trim($baseUrl) === '') {
+                $this->jsonError('สถานศึกษานี้ยังไม่ได้กำหนดที่อยู่ระบบ RMS');
+            }
+            $importer = new RmsImporter($this->repo, $baseUrl);
+
+            if ($action === 'count') {
+                $count = $importer->countStudents();
+                if (!$count['ok']) {
+                    $this->jsonError('นับจำนวนผู้เรียนไม่สำเร็จ: ' . $count['error']);
+                }
+                $this->json(true, array('total' => $count['total']));
+            }
+
+            @set_time_limit(0);
+
+            $offset = post_int('offset', 0);
+            $row = post_int('row', RmsImporter::STUDENT_CHUNK);
+
+            $fetch = $importer->fetchStudents($offset, $row);
+            if (!$fetch['ok']) {
+                $this->jsonError('ดึงข้อมูลผู้เรียนไม่สำเร็จ: ' . $fetch['error']);
+            }
+
+            // Built once per slice rather than queried per row.
+            $departments = $this->repo->departmentMap($schoolId);
+            $summary = $importer->importStudents($fetch['rows'], $schoolId, $departments);
+
+            $this->json(true, $summary);
+        }
+
+        // The screen itself.
+        $schools = $this->repo->schools('active');
+        $selected = $schoolId > 0 ? $schoolId : 0;
+
+        $this->render('centraladmin/import-students', array(
+            'title'          => 'โอนข้อมูลนักเรียน',
+            'schools'        => $schools,
+            'selectedSchool' => $selected,
+            'baseUrl'        => $selected > 0 ? $this->repo->rmsBaseUrlFor($selected) : '',
+            'chunk'          => RmsImporter::STUDENT_CHUNK,
+            'studentCount'   => $selected > 0
+                ? $this->repo->alumniCount(array(
+                    'school_id' => $selected, 'study_state' => 'studying',
+                ))
+                : 0,
+        ));
+    }
+
     public function settings()
     {
         $this->auth->require_role('centraladmin');

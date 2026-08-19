@@ -237,6 +237,177 @@
         window.addEventListener('pageshow', hideOverlay);
     }
 
+    /*
+     * Chunked transfer of a large dataset.
+     *
+     * The student list runs to thousands of rows, more than one request can
+     * hash and store, so the loop lives here: ask for the total, then request
+     * one slice at a time. Each slice is its own request, so none of them can
+     * outrun the server's execution limit, and the progress shown is real.
+     */
+    function initChunkedTransfer() {
+        var root = document.getElementById('student-transfer');
+        if (!root) {
+            return;
+        }
+
+        var endpoint = root.getAttribute('data-endpoint');
+        var school = root.getAttribute('data-school');
+        var token = root.getAttribute('data-token');
+        var row = parseInt(root.getAttribute('data-row'), 10) || 100;
+
+        var startBtn = root.querySelector('[data-start]');
+        var panel = root.querySelector('[data-panel]');
+        var bar = root.querySelector('[data-bar]');
+        var percent = root.querySelector('[data-percent]');
+        var status = root.querySelector('[data-status]');
+        var errorsBox = root.querySelector('[data-errors]');
+        var errorList = root.querySelector('[data-error-list]');
+
+        var counters = {
+            added: root.querySelector('[data-added]'),
+            updated: root.querySelector('[data-updated]'),
+            skipped: root.querySelector('[data-skipped]'),
+            done: root.querySelector('[data-done]')
+        };
+
+        function setText(el, value) {
+            if (el) {
+                el.textContent = value;
+            }
+        }
+
+        function post(params, done) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', endpoint, true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState !== 4) {
+                    return;
+                }
+                var parsed = null;
+                try {
+                    parsed = JSON.parse(xhr.responseText);
+                } catch (e) {
+                    done({ success: false, message: 'เซิร์ฟเวอร์ตอบกลับไม่ถูกต้อง (HTTP ' + xhr.status + ')' });
+                    return;
+                }
+                done(parsed);
+            };
+            var body = '_token=' + encodeURIComponent(token) +
+                       '&school_id=' + encodeURIComponent(school);
+            for (var key in params) {
+                if (params.hasOwnProperty(key)) {
+                    body += '&' + key + '=' + encodeURIComponent(params[key]);
+                }
+            }
+            xhr.send(body);
+        }
+
+        function fail(message) {
+            status.className = 'cell-dim';
+            status.style.color = 'var(--danger)';
+            setText(status, message);
+            startBtn.disabled = false;
+            startBtn.textContent = 'ลองอีกครั้ง';
+        }
+
+        function showErrors(list) {
+            if (!list || !list.length) {
+                return;
+            }
+            errorsBox.hidden = false;
+            errorList.textContent += list.join('\n') + '\n';
+        }
+
+        startBtn.addEventListener('click', function () {
+            var confirmText = startBtn.getAttribute('data-confirm');
+            if (confirmText && !window.confirm(confirmText)) {
+                return;
+            }
+
+            startBtn.disabled = true;
+            startBtn.textContent = 'กำลังโอนข้อมูล…';
+            panel.hidden = false;
+            status.style.color = '';
+            setText(status, 'กำลังนับจำนวนผู้เรียนทั้งหมด…');
+
+            var totals = { added: 0, updated: 0, skipped: 0, done: 0, noLogin: 0 };
+            var total = 0;
+            var offset = 0;
+
+            function render() {
+                setText(counters.added, totals.added);
+                setText(counters.updated, totals.updated);
+                setText(counters.skipped, totals.skipped);
+                setText(counters.done, totals.done);
+                setText(counters.noLogin, totals.noLogin);
+                if (totals.noLogin > 0 && noLoginBox) {
+                    noLoginBox.hidden = false;
+                }
+
+                var pct = total > 0 ? Math.min(100, Math.round((totals.done / total) * 100)) : 0;
+                bar.style.width = pct + '%';
+                setText(percent, pct + '%');
+                setText(status, 'โอนแล้ว ' + totals.done +
+                    (total > 0 ? ' จาก ' + total : '') + ' รายการ');
+            }
+
+            function finish() {
+                bar.style.width = '100%';
+                setText(percent, '100%');
+                setText(status, 'เสร็จสิ้น — เพิ่มใหม่ ' + totals.added +
+                    ' คน · ปรับปรุง ' + totals.updated + ' คน' +
+                    (totals.skipped ? ' · ข้าม ' + totals.skipped + ' คน' : ''));
+                startBtn.disabled = false;
+                startBtn.textContent = 'โอนข้อมูลอีกครั้ง';
+            }
+
+            function nextBatch() {
+                post({ action: 'sync_batch', offset: offset, row: row }, function (res) {
+                    if (!res || !res.success) {
+                        // Say how far it got, so the operator knows what landed.
+                        fail('หยุดที่ ' + totals.done + ' รายการ: ' +
+                             ((res && res.message) || 'เกิดข้อผิดพลาด'));
+                        return;
+                    }
+                    var d = res.data || {};
+                    totals.added += d.added || 0;
+                    totals.updated += d.updated || 0;
+                    totals.skipped += d.skipped || 0;
+                    totals.noLogin += d.no_login || 0;
+                    // fetched counts raw rows from RMS, not rows stored: using
+                    // the stored count would stop the loop early whenever a row
+                    // was skipped.
+                    totals.done += d.fetched || 0;
+                    offset += row;
+                    showErrors(d.errors);
+                    render();
+
+                    if ((d.fetched || 0) < row) {
+                        finish();          // a short slice means the end
+                        return;
+                    }
+                    if (total > 0 && totals.done >= total) {
+                        finish();          // guard against a source that never shortens
+                        return;
+                    }
+                    nextBatch();
+                });
+            }
+
+            post({ action: 'count' }, function (res) {
+                if (!res || !res.success) {
+                    fail((res && res.message) || 'นับจำนวนไม่สำเร็จ');
+                    return;
+                }
+                total = (res.data && res.data.total) || 0;
+                render();
+                nextBatch();
+            });
+        });
+    }
+
     /* Confirmation prompts for destructive buttons. */
     function initConfirms() {
         var nodes = document.querySelectorAll('[data-confirm]');
@@ -276,5 +447,6 @@
         initConfirms();
         initAutoSubmit();
         initBusyForms();
+        initChunkedTransfer();
     });
 }());

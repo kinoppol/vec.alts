@@ -247,6 +247,255 @@ class RmsImporter
         $result['avatar_reasons'][$reason]++;
     }
 
+    // ---------------------------------------------------------- students
+
+    /** Rows requested per chunk when no size is given. */
+    const STUDENT_CHUNK = 100;
+
+    /** Upper bound on a chunk size, whatever the caller asks for. */
+    const STUDENT_CHUNK_MAX = 500;
+
+    /**
+     * Builds a feed URL for a dataset.
+     *
+     * Only the origin comes from configuration; the path and app_name are
+     * fixed here so a setting cannot repoint the integration at another script.
+     *
+     * @param string $query e.g. 'data=std2018_student&count=yes'
+     * @return string
+     */
+    public function datasetUrl($query)
+    {
+        return $this->baseUrl . '/api_connection.php?app_name=nutty&' . ltrim($query, '&');
+    }
+
+    /**
+     * Decodes a dataset response.
+     *
+     * @param string $query
+     * @return array array('ok'=>bool, 'error'=>string, 'rows'=>array)
+     */
+    private function fetchDataset($query)
+    {
+        $out = array('ok' => false, 'error' => '', 'rows' => array());
+
+        $error = Http::validateUrl($this->baseUrl);
+        if ($error !== '') {
+            $out['error'] = $error;
+            return $out;
+        }
+
+        $response = Http::get($this->datasetUrl($query));
+        if (!$response['ok']) {
+            $out['error'] = $response['error'];
+            return $out;
+        }
+
+        $decoded = json_decode($response['body'], true);
+        if (!is_array($decoded)) {
+            $out['error'] = 'ข้อมูลที่ได้รับไม่ใช่ JSON ที่ถูกต้อง (' . json_last_error_msg() . ')';
+            return $out;
+        }
+
+        $out['ok'] = true;
+        $out['rows'] = $decoded;
+        return $out;
+    }
+
+    /**
+     * How many students the source holds, for a percentage progress bar.
+     *
+     * The count endpoint answers [{"0":"3369","c":"3369"}]; some installations
+     * label the column `count` instead.
+     *
+     * @return array array('ok'=>bool, 'error'=>string, 'total'=>int)
+     */
+    public function countStudents()
+    {
+        $result = $this->fetchDataset('data=std2018_student&count=yes');
+        if (!$result['ok']) {
+            return array('ok' => false, 'error' => $result['error'], 'total' => 0);
+        }
+
+        $first = isset($result['rows'][0]) && is_array($result['rows'][0]) ? $result['rows'][0] : array();
+        $total = 0;
+        foreach (array('c', 'count', 0) as $key) {
+            if (isset($first[$key]) && is_numeric($first[$key])) {
+                $total = (int) $first[$key];
+                break;
+            }
+        }
+        return array('ok' => true, 'error' => '', 'total' => $total);
+    }
+
+    /**
+     * One slice of the student list.
+     *
+     * @param int $offset
+     * @param int $row
+     * @return array array('ok'=>bool, 'error'=>string, 'rows'=>array)
+     */
+    public function fetchStudents($offset, $row)
+    {
+        $offset = max(0, (int) $offset);
+        $row = (int) $row;
+        if ($row < 1) {
+            $row = self::STUDENT_CHUNK;
+        }
+        // Clamped here rather than trusted from the browser.
+        if ($row > self::STUDENT_CHUNK_MAX) {
+            $row = self::STUDENT_CHUNK_MAX;
+        }
+        return $this->fetchDataset('data=std2018_student&limit=' . $offset . ',' . $row);
+    }
+
+    /**
+     * Everything RMS sends is a string; these turn them into storable values.
+     *
+     * @param mixed $value
+     * @return string
+     */
+    private static function text($value)
+    {
+        return trim((string) $value);
+    }
+
+    /**
+     * @param mixed $value
+     * @return int 0 when absent or not a number
+     */
+    private static function intOrZero($value)
+    {
+        $value = trim((string) $value);
+        return ($value !== '' && is_numeric($value)) ? (int) $value : 0;
+    }
+
+    /**
+     * Turns "ประกาศนียบัตรวิชาชีพชั้นสูง 2" into the level this system stores.
+     *
+     * @param string $gradeName
+     * @return string
+     */
+    public static function levelFromGrade($gradeName)
+    {
+        $gradeName = self::text($gradeName);
+        if ($gradeName === '') {
+            return '';
+        }
+        // The higher certificate contains the lower one as a prefix, so it has
+        // to be tested first.
+        if (strpos($gradeName, 'ชั้นสูง') !== false) {
+            return 'ปวส.';
+        }
+        if (strpos($gradeName, 'ประกาศนียบัตรวิชาชีพ') !== false) {
+            return 'ปวช.';
+        }
+        return '';
+    }
+
+    /**
+     * Transfers one slice of students into `alumni` as current students.
+     *
+     * @param array $rows rows from fetchStudents()
+     * @param int $schoolId
+     * @param array $departments name => id, updated in place as new ones appear
+     * @return array array('added','updated','skipped','fetched','errors')
+     */
+    public function importStudents($rows, $schoolId, &$departments)
+    {
+        $result = array(
+            'added' => 0, 'updated' => 0, 'skipped' => 0, 'no_login' => 0,
+            'fetched' => count($rows), 'errors' => array(),
+        );
+
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                $result['skipped']++;
+                continue;
+            }
+
+            $studentCode = self::text(arr($row, 'studentCode', ''));
+            $externalId = self::text(arr($row, 'studentID', ''));
+
+            // Without the code there is no natural key and no way to sign in.
+            if ($studentCode === '') {
+                $result['skipped']++;
+                continue;
+            }
+
+            // The national ID doubles as the student's password, so anything
+            // that is not thirteen digits is refused rather than stored as a
+            // credential nobody can type. The person is still transferred.
+            $nationalId = preg_replace('/\D/', '', self::text(arr($row, 'idcard', '')));
+            if (strlen($nationalId) !== 13) {
+                $nationalId = '';
+                $result['no_login']++;
+            }
+
+            // The major becomes a department, so the dashboards break down by
+            // it exactly as they do for graduates.
+            $departmentId = null;
+            $major = self::text(arr($row, 'majorNameTh', ''));
+            if ($major !== '') {
+                $key = mb_strtolower($major);
+                if (!isset($departments[$key])) {
+                    $departments[$key] = $this->repo->createDepartment($schoolId, $major);
+                }
+                $departmentId = $departments[$key];
+            }
+
+            $gpax = self::text(arr($row, 'gpax', ''));
+            $gpax = ($gpax !== '' && is_numeric($gpax)) ? (float) $gpax : null;
+
+            $email = self::text(arr($row, 'email', ''));
+            if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $email = '';
+            }
+
+            $data = array(
+                'school_id'         => $schoolId,
+                'department_id'     => $departmentId,
+                'student_code'      => $studentCode,
+                'external_source'   => self::SOURCE,
+                'external_id'       => $externalId,
+                'national_id'       => $nationalId,
+                'first_name'        => self::text(arr($row, 'firstname', '')),
+                'last_name'         => self::text(arr($row, 'surname', '')),
+                'gender'            => self::text(arr($row, 'gender', '')),
+                'level'             => self::levelFromGrade(arr($row, 'gradeNameTh', '')),
+                'group_code'        => self::text(arr($row, 'groupCode', '')),
+                'group_name'        => self::text(arr($row, 'groupName', '')),
+                'grade_name'        => self::text(arr($row, 'gradeNameTh', '')),
+                'major_name'        => $major,
+                'status_code'       => self::text(arr($row, 'studentStatusCode', '')),
+                'status_name'       => self::text(arr($row, 'studentStatusName', '')),
+                'entrance_year'     => self::intOrZero(arr($row, 'entranceYear', '')),
+                'entrance_semester' => self::intOrZero(arr($row, 'entranceSemester', '')),
+                'gpax'              => $gpax,
+                'email'             => $email,
+                'phone'             => self::text(arr($row, 'tel', '')),
+            );
+
+            try {
+                $outcome = $this->repo->upsertImportedStudent($data);
+            } catch (PDOException $e) {
+                $result['skipped']++;
+                if (count($result['errors']) < 20) {
+                    $result['errors'][] = $studentCode . ': ' . $e->getMessage();
+                }
+                continue;
+            }
+
+            if ($outcome['created']) {
+                $result['added']++;
+            } else {
+                $result['updated']++;
+            }
+        }
+
+        return $result;
+    }
+
     /**
      * Whether the server is able to store downloaded pictures at all.
      *

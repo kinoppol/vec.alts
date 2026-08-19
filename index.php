@@ -67,6 +67,7 @@ $routes = array(
     'centraladmin/settings'     => array('CentralAdminController', 'settings'),
     'centraladmin/import-users' => array('CentralAdminController', 'importUsers'),
     'centraladmin/impersonate'  => array('CentralAdminController', 'impersonate'),
+    'centraladmin/import-students' => array('CentralAdminController', 'importStudents'),
 
     'admin/migrations'          => array('MigrationController', 'index'),
 );
