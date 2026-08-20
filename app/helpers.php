@@ -419,7 +419,7 @@ function app_menu($role)
             break;
         case 'advisor':
             $menu = array(
-                array('route' => 'advisor', 'label' => 'ศิษย์เก่าในความดูแล'),
+                array('route' => 'advisor', 'label' => 'ข้อมูลนักศึกษาในความดูแล'),
                 array('route' => 'advisor/summary', 'label' => 'สรุปกลุ่ม'),
             );
             break;

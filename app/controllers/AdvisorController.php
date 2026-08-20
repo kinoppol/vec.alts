@@ -13,16 +13,23 @@ class AdvisorController extends Controller
         $schoolId = $this->auth->schoolId();
         $page = max(1, query_int('page', 1));
 
+        // The caseload holds current students as well as graduates. Which of
+        // them to show is the advisor's choice, not fixed here: an advisor
+        // whose groups came from RMS has thousands of current students and
+        // would otherwise be shown an empty screen.
+        $studyState = query('study');
+        $states = study_states();
+        if (!isset($states[$studyState])) {
+            $studyState = '';
+        }
+
         $filters = array(
             'school_id'     => $schoolId,
             'advisor_id'    => $this->auth->id(),
             'survey_year'   => $this->repo->surveyYear(),
             'search'        => query('q'),
             'state'         => query('state'),
-            // This screen exists to chase employment survey responses, which
-            // only the graduated owe. Current students in the same caseload
-            // would show up as a backlog that cannot be worked.
-            'study_state'   => 'graduated',
+            'study_state'   => $studyState,
             'department_id' => query_int('dept', 0),
             'limit'         => self::PER_PAGE,
             'offset'        => ($page - 1) * self::PER_PAGE,
@@ -36,16 +43,25 @@ class AdvisorController extends Controller
             'school_id'   => $schoolId,
             'advisor_id'  => $this->auth->id(),
             'survey_year' => $filters['survey_year'],
-            'study_state' => 'graduated',
         );
+        $graduated = array_merge($base, array('study_state' => 'graduated'));
+
         $counts = array(
-            'total'   => $this->repo->alumniCount($base),
-            'updated' => $this->repo->alumniCount(array_merge($base, array('state' => 'updated'))),
+            'total'     => $this->repo->alumniCount($base),
+            'studying'  => $this->repo->alumniCount(
+                array_merge($base, array('study_state' => 'studying'))
+            ),
+            'graduated' => $this->repo->alumniCount($graduated),
+            // Only graduates owe an employment survey, so the follow-up
+            // figures are counted against them alone.
+            'updated'   => $this->repo->alumniCount(
+                array_merge($graduated, array('state' => 'updated'))
+            ),
         );
-        $counts['pending'] = max(0, $counts['total'] - $counts['updated']);
+        $counts['pending'] = max(0, $counts['graduated'] - $counts['updated']);
 
         $this->render('advisor/index', array(
-            'title'       => 'ศิษย์เก่าในความดูแล',
+            'title'       => 'ข้อมูลนักศึกษาในความดูแล',
             'rows'        => $rows,
             'counts'      => $counts,
             'filters'     => $filters,

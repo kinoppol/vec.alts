@@ -225,9 +225,13 @@ class CentralAdminController extends Controller
             $filters['offset'] = ($page - 1) * self::PER_PAGE;
         }
 
+        $users = $this->repo->staffUsers($filters);
+
         $this->render('centraladmin/users', array(
             'title'   => 'ผู้ใช้งานระบบ',
-            'users'   => $this->repo->staffUsers($filters),
+            'users'   => $users,
+            // Fetched for the whole page in one query rather than per row.
+            'advisorGroups' => $this->repo->groupsByAdvisor(array_column($users, 'id')),
             'schools' => $this->repo->schools(),
             'filters' => $filters,
             'total'   => $total,

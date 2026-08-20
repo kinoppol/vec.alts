@@ -1126,6 +1126,96 @@ class Repository
     }
 
     /**
+     * Class groups advised by each of the given staff accounts.
+     *
+     * Takes the whole page of users at once: a query per row would mean fifty
+     * round trips to render one listing.
+     *
+     * @param array $userIds
+     * @return array user id => list of array('abbr','code','name','year','semester')
+     */
+    public function groupsByAdvisor($userIds)
+    {
+        $ids = array();
+        foreach ($userIds as $id) {
+            $id = (int) $id;
+            if ($id > 0) {
+                $ids[$id] = $id;
+            }
+        }
+        if (!$ids) {
+            return array();
+        }
+
+        // Built from integers cast above, so there is nothing here that came
+        // from the request as text.
+        $placeholders = implode(', ', array_fill(0, count($ids), '?'));
+
+        $rows = $this->all(
+            'SELECT advisor_user_id, group_code, group_abbr, group_name,'
+            . ' academic_year, semester'
+            . ' FROM `{p}student_groups`'
+            . ' WHERE advisor_user_id IN (' . $placeholders . ')'
+            . ' ORDER BY academic_year DESC, semester DESC, group_code ASC',
+            array_values($ids)
+        );
+
+        $out = array();
+        $seen = array();
+        foreach ($rows as $row) {
+            $userId = (int) $row['advisor_user_id'];
+
+            // The group's name is what staff call it — "สถาปัตยกรรม สถ.62-1".
+            // Only where RMS left it blank does the code stand in.
+            $label = trim((string) $row['group_name']);
+            if ($label === '') {
+                $label = trim((string) $row['group_code']);
+            }
+
+            // Keyed on the code, not the label: a group carried across terms
+            // appears once, while two different groups that happen to share a
+            // name both stay visible.
+            $key = $userId . '|' . $row['group_code'];
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+
+            if (!isset($out[$userId])) {
+                $out[$userId] = array();
+            }
+            $out[$userId][] = array(
+                'label'    => $label,
+                'abbr'     => trim((string) $row['group_abbr']),
+                'code'     => (string) $row['group_code'],
+                'year'     => (int) $row['academic_year'],
+                'semester' => (int) $row['semester'],
+            );
+        }
+
+        // Some names carry no section — one teacher can end up advising two
+        // groups both called "ช่างเทคนิคคอมพิวเตอร์". Where that happens the
+        // short name is appended so the two can be told apart; names that are
+        // already unique are left exactly as they are.
+        foreach ($out as $userId => $groups) {
+            $counts = array();
+            foreach ($groups as $group) {
+                $counts[$group['label']] = isset($counts[$group['label']])
+                    ? $counts[$group['label']] + 1 : 1;
+            }
+            foreach ($groups as $index => $group) {
+                if ($counts[$group['label']] < 2) {
+                    continue;
+                }
+                $suffix = $group['abbr'] !== '' ? $group['abbr'] : $group['code'];
+                $out[$userId][$index]['label'] = $group['label'] . ' · ' . $suffix;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
      * Class groups of one institution, newest year first.
      *
      * @param int $schoolId

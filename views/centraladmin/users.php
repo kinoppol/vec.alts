@@ -6,7 +6,7 @@
  * @var array $schools
  * @var array $filters
  */
-$cols = 'grid-template-columns:1.5fr 1.2fr .9fr .8fr 1.1fr';
+$cols = 'grid-template-columns:1.5fr 1.1fr .8fr 1.2fr .75fr 1fr';
 ?>
 <h1 class="page-title">ผู้ใช้งานระบบ</h1>
 <p class="page-sub">บัญชีบุคลากรทั้งหมดในทุกสถานศึกษา</p>
@@ -32,7 +32,7 @@ $cols = 'grid-template-columns:1.5fr 1.2fr .9fr .8fr 1.1fr';
   </form>
 
   <div class="table-head" style="<?php echo $cols; ?>">
-    <span>ชื่อ</span><span>สถานศึกษา</span><span>บทบาท</span><span>เข้าใช้ล่าสุด</span><span>สถานะ</span>
+    <span>ชื่อ</span><span>สถานศึกษา</span><span>บทบาท</span><span>กลุ่มที่ปรึกษา</span><span>เข้าใช้ล่าสุด</span><span>สถานะ</span>
   </div>
 
   <?php if (!$users): ?>
@@ -62,6 +62,35 @@ $cols = 'grid-template-columns:1.5fr 1.2fr .9fr .8fr 1.1fr';
         </div>
         <span class="cell-dim"><?php echo e($user['school_name'] !== null ? $user['school_name'] : 'ระบบกลาง'); ?></span>
         <span class="cell-dim"><?php echo e(role_label($user['role'])); ?></span>
+
+        <span>
+          <?php
+          $groups = arr($advisorGroups, (int) $user['id'], array());
+          if (!$groups):
+          ?>
+            <span class="cell-dim">—</span>
+          <?php else: ?>
+            <span style="display:flex;flex-wrap:wrap;gap:4px">
+              <?php foreach (array_slice($groups, 0, 4) as $group): ?>
+                <span class="badge badge-done" style="font-size:11px;padding:3px 9px"
+                      title="<?php echo e($group['abbr'] !== '' ? $group['abbr'] . ' · ' : ''); ?>รหัส <?php echo e($group['code']); ?> · ภาค <?php echo e($group['semester'] . '/' . $group['year']); ?>">
+                  <?php echo e($group['label']); ?>
+                </span>
+              <?php endforeach; ?>
+              <?php if (count($groups) > 4): ?>
+                <span class="cell-dim" style="font-size:11px;align-self:center"
+                      title="<?php
+                          $rest = array();
+                          foreach (array_slice($groups, 4) as $group) {
+                              $rest[] = $group['label'];
+                          }
+                          echo e(implode(', ', $rest));
+                      ?>">+<?php echo e(count($groups) - 4); ?></span>
+              <?php endif; ?>
+            </span>
+          <?php endif; ?>
+        </span>
+
         <span class="cell-dim" style="font-size:12px"><?php echo e(thai_date($user['last_login_at'])); ?></span>
         <span style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
           <span class="badge badge-<?php echo e($badge[0]); ?>"><?php echo e($badge[1]); ?></span>

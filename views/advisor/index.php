@@ -13,21 +13,29 @@
 $cols = 'grid-template-columns:1.4fr 1fr 1.2fr .8fr';
 $pages = (int) ceil($total / max(1, $perPage));
 ?>
-<h1 class="page-title">ศิษย์เก่าในความดูแล</h1>
-<p class="page-sub">กรอกหรือแก้ไขข้อมูลแทนศิษย์เก่าที่ยังไม่ได้อัปเดต · ปีสำรวจ <?php echo e($filters['survey_year']); ?></p>
+<h1 class="page-title">ข้อมูลนักศึกษาในความดูแล</h1>
+<p class="page-sub">
+  นักศึกษาปัจจุบันและศิษย์เก่าที่อยู่ในความดูแลของคุณ
+  · แบบสำรวจภาวะการมีงานทำกรอกได้เฉพาะผู้ที่สำเร็จการศึกษาแล้ว
+  · ปีสำรวจ <?php echo e($filters['survey_year']); ?>
+</p>
 
-<div class="grid-3" style="margin-bottom:24px">
+<div class="grid-4" style="margin-bottom:24px">
   <div class="card card-sm">
     <div class="kpi-value" style="font-size:28px"><?php echo e(num($counts['total'])); ?></div>
-    <div class="stat-label" style="margin-top:0">ศิษย์เก่าทั้งหมด</div>
+    <div class="stat-label" style="margin-top:0">ในความดูแลทั้งหมด</div>
   </div>
   <div class="card card-sm">
-    <div class="kpi-value" style="font-size:28px;color:var(--primary)"><?php echo e(num($counts['updated'])); ?></div>
-    <div class="stat-label" style="margin-top:0">อัปเดตแล้ว</div>
+    <div class="kpi-value" style="font-size:28px;color:var(--ok)"><?php echo e(num($counts['studying'])); ?></div>
+    <div class="stat-label" style="margin-top:0">กำลังศึกษา</div>
+  </div>
+  <div class="card card-sm">
+    <div class="kpi-value" style="font-size:28px;color:var(--primary)"><?php echo e(num($counts['graduated'])); ?></div>
+    <div class="stat-label" style="margin-top:0">ศิษย์เก่า</div>
   </div>
   <div class="card card-sm">
     <div class="kpi-value" style="font-size:28px"><?php echo e(num($counts['pending'])); ?></div>
-    <div class="stat-label" style="margin-top:0">รอติดตาม</div>
+    <div class="stat-label" style="margin-top:0">ศิษย์เก่าที่รอติดตาม</div>
   </div>
 </div>
 
@@ -37,8 +45,18 @@ $pages = (int) ceil($total / max(1, $perPage));
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
       <input class="input input-sm" type="search" name="q" placeholder="ค้นหาชื่อหรือรหัส"
              style="width:220px" value="<?php echo e($filters['search']); ?>">
+      <select class="input input-sm" name="study" data-auto-submit style="width:150px"
+              aria-label="กรองศิษย์ปัจจุบันหรือศิษย์เก่า">
+        <option value="">ทั้งหมด</option>
+        <?php foreach (study_states() as $code => $label): ?>
+          <option value="<?php echo e($code); ?>"
+                  <?php echo $filters['study_state'] === $code ? 'selected' : ''; ?>>
+            <?php echo e($label); ?>
+          </option>
+        <?php endforeach; ?>
+      </select>
       <select class="input input-sm" name="state" data-auto-submit style="width:150px">
-        <option value="">ทุกสถานะ</option>
+        <option value="">ทุกสถานะการสำรวจ</option>
         <option value="pending" <?php echo $filters['state'] === 'pending' ? 'selected' : ''; ?>>รอติดตาม</option>
         <option value="updated" <?php echo $filters['state'] === 'updated' ? 'selected' : ''; ?>>อัปเดตแล้ว</option>
         <option value="unreachable" <?php echo $filters['state'] === 'unreachable' ? 'selected' : ''; ?>>ติดต่อไม่ได้</option>
@@ -64,11 +82,17 @@ $pages = (int) ceil($total / max(1, $perPage));
   </div>
 
   <?php if (!$rows): ?>
-    <div class="table-empty">ไม่พบศิษย์เก่าตามเงื่อนไขที่เลือก</div>
+    <div class="table-empty">ไม่พบนักศึกษาตามเงื่อนไขที่เลือก</div>
   <?php else: ?>
     <?php foreach ($rows as $row): ?>
       <?php
-      if ($row['contact_state'] === 'unreachable') {
+      // Current students are not behind on anything: the employment survey
+      // only opens once they have finished, so they are labelled by where
+      // they are rather than by a response they do not owe.
+      $studying = arr($row, 'study_state', 'graduated') === 'studying';
+      if ($studying) {
+          $badge = array('ok', 'กำลังศึกษา');
+      } elseif ($row['contact_state'] === 'unreachable') {
           $badge = array('warn', 'ติดต่อไม่ได้');
       } elseif ($row['employment_status'] === null) {
           $badge = array('wait', 'รอติดตาม');
@@ -86,8 +110,12 @@ $pages = (int) ceil($total / max(1, $perPage));
         <span class="cell-dim"><?php echo e($row['department_name'] !== null ? $row['department_name'] : '—'); ?></span>
         <span><span class="badge badge-<?php echo e($badge[0]); ?>"><?php echo e($badge[1]); ?></span></span>
         <span class="cell-actions" style="justify-self:end">
-          <a class="btn btn-sm" style="color:var(--primary)"
-             href="<?php echo e(url('advisor/fill', array('id' => $row['id']))); ?>">กรอกแทน</a>
+          <?php if ($studying): ?>
+            <span class="cell-dim" style="font-size:12px">ยังไม่ถึงกำหนดสำรวจ</span>
+          <?php else: ?>
+            <a class="btn btn-sm" style="color:var(--primary)"
+               href="<?php echo e(url('advisor/fill', array('id' => $row['id']))); ?>">กรอกแทน</a>
+          <?php endif; ?>
         </span>
       </div>
     <?php endforeach; ?>
@@ -102,6 +130,7 @@ $pages = (int) ceil($total / max(1, $perPage));
           <a href="<?php echo e(url('advisor', array(
               'page' => $i, 'q' => $filters['search'],
               'state' => $filters['state'], 'dept' => $filters['department_id'],
+              'study' => $filters['study_state'],
           ))); ?>"><?php echo e($i); ?></a>
         <?php endif; ?>
       <?php endfor; ?>
