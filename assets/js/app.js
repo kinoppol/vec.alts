@@ -408,6 +408,93 @@
         });
     }
 
+    /*
+     * Class groups and their advisors. A few hundred rows with no password
+     * hashing, so one request does it — no slicing needed.
+     */
+    function initGroupTransfer() {
+        var root = document.getElementById('group-transfer');
+        if (!root) {
+            return;
+        }
+
+        var btn = root.querySelector('[data-group-start]');
+        var panel = root.querySelector('[data-group-panel]');
+        var status = root.querySelector('[data-group-status]');
+        var warnBox = root.querySelector('[data-g-warn]');
+        var warnText = root.querySelector('[data-g-warn-text]');
+
+        function set(sel, value) {
+            var el = root.querySelector(sel);
+            if (el) {
+                el.textContent = value;
+            }
+        }
+
+        btn.addEventListener('click', function () {
+            var confirmText = btn.getAttribute('data-confirm');
+            if (confirmText && !window.confirm(confirmText)) {
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'กำลังโอนกลุ่มเรียน…';
+            panel.hidden = false;
+            warnBox.hidden = true;
+            status.style.color = '';
+            status.textContent = 'กำลังดึงกลุ่มเรียนและจับคู่ครูที่ปรึกษา…';
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', root.getAttribute('data-endpoint'), true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState !== 4) {
+                    return;
+                }
+                btn.disabled = false;
+                btn.textContent = 'โอนกลุ่มเรียนอีกครั้ง';
+
+                var res = null;
+                try {
+                    res = JSON.parse(xhr.responseText);
+                } catch (e) {
+                    status.style.color = 'var(--danger)';
+                    status.textContent = 'เซิร์ฟเวอร์ตอบกลับไม่ถูกต้อง (HTTP ' + xhr.status + ')';
+                    return;
+                }
+                if (!res.success) {
+                    status.style.color = 'var(--danger)';
+                    status.textContent = res.message || 'เกิดข้อผิดพลาด';
+                    return;
+                }
+
+                var d = res.data || {};
+                set('[data-g-added]', d.added || 0);
+                set('[data-g-updated]', d.updated || 0);
+                set('[data-g-linked]', d.linked || 0);
+                set('[data-g-students]', d.students_linked || 0);
+                status.textContent = 'เสร็จสิ้น — อ่านกลุ่มเรียน ' + (d.fetched || 0) + ' กลุ่ม';
+
+                var notes = [];
+                if (d.no_teacher) {
+                    notes.push('มี ' + d.no_teacher + ' กลุ่มที่ระบบ RMS ไม่ได้ระบุครูที่ปรึกษาไว้');
+                }
+                if (d.unmatched) {
+                    notes.push('มี ' + d.unmatched + ' กลุ่มที่ครูที่ปรึกษายังไม่มีบัญชีในระบบนี้ ' +
+                               '(มักเป็นครูที่พ้นสภาพแล้ว จึงไม่ถูกโอนมาในขั้นตอนโอนข้อมูลผู้ใช้)');
+                }
+                if (notes.length) {
+                    warnBox.hidden = false;
+                    warnText.textContent = notes.join(' · ');
+                }
+            };
+
+            xhr.send('_token=' + encodeURIComponent(root.getAttribute('data-token')) +
+                     '&school_id=' + encodeURIComponent(root.getAttribute('data-school')) +
+                     '&action=groups');
+        });
+    }
+
     /* Confirmation prompts for destructive buttons. */
     function initConfirms() {
         var nodes = document.querySelectorAll('[data-confirm]');
@@ -448,5 +535,6 @@
         initAutoSubmit();
         initBusyForms();
         initChunkedTransfer();
+        initGroupTransfer();
     });
 }());

@@ -496,6 +496,114 @@ class RmsImporter
         return $result;
     }
 
+    // ------------------------------------------------------ student groups
+
+    /**
+     * The class-group list. A few hundred rows, so it comes in one request.
+     *
+     * @return array array('ok'=>bool, 'error'=>string, 'rows'=>array)
+     */
+    public function fetchStudentGroups()
+    {
+        return $this->fetchDataset('data=std2018_studentgroup');
+    }
+
+    /**
+     * Stores the class groups and resolves each one's advisor.
+     *
+     * RMS names the advisor by national ID. Staff transferred from the same
+     * system carry that number as their username, so the lookup is built once
+     * from the institution's accounts rather than queried per row.
+     *
+     * @param array $rows rows from fetchStudentGroups()
+     * @param int $schoolId
+     * @return array counts and the teachers that could not be matched
+     */
+    public function importStudentGroups($rows, $schoolId)
+    {
+        $result = array(
+            'added' => 0, 'updated' => 0, 'skipped' => 0,
+            'linked' => 0, 'no_teacher' => 0, 'unmatched' => 0,
+            'fetched' => count($rows), 'unmatched_ids' => array(),
+        );
+
+        $teachers = $this->repo->staffByUsername($schoolId);
+
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                $result['skipped']++;
+                continue;
+            }
+
+            $year = self::intOrZero(arr($row, 'academicYear', ''));
+            $semester = self::intOrZero(arr($row, 'semester', ''));
+            $groupCode = self::text(arr($row, 'groupCode', ''));
+
+            // The three of them together are the natural key; without all
+            // three the row cannot be stored or matched again.
+            if ($year === 0 || $semester === 0 || $groupCode === '') {
+                $result['skipped']++;
+                continue;
+            }
+
+            $idcard = preg_replace('/\D/', '', self::text(arr($row, 'teacherIdcard', '')));
+            if (strlen($idcard) !== 13) {
+                $idcard = '';
+            }
+
+            $advisorId = null;
+            if ($idcard === '') {
+                $result['no_teacher']++;
+            } elseif (isset($teachers[$idcard])) {
+                $advisorId = $teachers[$idcard];
+                $result['linked']++;
+            } else {
+                // The teacher exists in RMS but has no account here yet —
+                // usually because they have left and were filtered out of the
+                // staff transfer. The number is kept so a later run can link it.
+                $result['unmatched']++;
+                if (count($result['unmatched_ids']) < 10) {
+                    $result['unmatched_ids'][] = $idcard;
+                }
+            }
+
+            $teacherName = trim(
+                self::text(arr($row, 'teacherFirstname', ''))
+                . ' ' . self::text(arr($row, 'teacherLastname', ''))
+            );
+
+            try {
+                $outcome = $this->repo->upsertStudentGroup(array(
+                    'school_id'       => $schoolId,
+                    'academic_year'   => $year,
+                    'semester'        => $semester,
+                    'group_code'      => $groupCode,
+                    'grade'           => self::text(arr($row, 'grade', '')),
+                    'group_name'      => self::text(arr($row, 'groupName', '')),
+                    'group_abbr'      => self::text(arr($row, 'groupAbbr', '')),
+                    'teacher_idcard'  => $idcard,
+                    'teacher_name'    => $teacherName,
+                    'advisor_user_id' => $advisorId,
+                    // Spelled with a capital C in the feed, unlike its
+                    // neighbours.
+                    'classroom_id'    => self::text(arr($row, 'ClassRoomID', '')),
+                    'external_source' => self::SOURCE,
+                ));
+            } catch (PDOException $e) {
+                $result['skipped']++;
+                continue;
+            }
+
+            if ($outcome['created']) {
+                $result['added']++;
+            } else {
+                $result['updated']++;
+            }
+        }
+
+        return $result;
+    }
+
     /**
      * Whether the server is able to store downloaded pictures at all.
      *

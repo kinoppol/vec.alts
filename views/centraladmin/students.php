@@ -139,6 +139,13 @@ $states = study_states();
           <?php else: ?>
             —
           <?php endif; ?>
+          <?php if ($row['advisor_name'] !== null && $row['advisor_name'] !== ''): ?>
+            <br><span style="font-size:12px;color:var(--primary)">
+              ครู: <?php echo e($row['advisor_name']); ?>
+            </span>
+          <?php elseif (trim((string) $row['group_code']) !== ''): ?>
+            <br><span style="font-size:12px;color:var(--warn)">ยังไม่มีครูที่ปรึกษา</span>
+          <?php endif; ?>
         </span>
 
         <span class="cell-dim">

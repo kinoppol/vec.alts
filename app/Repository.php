@@ -923,10 +923,12 @@ class Repository
         }
 
         return $this->all(
-            'SELECT a.*, s.name AS school_name, d.name AS department_name'
+            'SELECT a.*, s.name AS school_name, d.name AS department_name,'
+            . ' u.full_name AS advisor_name'
             . ' FROM `{p}alumni` a'
             . ' LEFT JOIN `{p}schools` s ON s.id = a.school_id'
             . ' LEFT JOIN `{p}departments` d ON d.id = a.department_id'
+            . ' LEFT JOIN `{p}users` u ON u.id = a.advisor_user_id'
             . ' WHERE ' . $where
             . ' ORDER BY a.group_code ASC, a.student_code ASC'
             . ' LIMIT ' . $limit . ' OFFSET ' . $offset,
@@ -995,6 +997,174 @@ class Repository
             'no_login'  => (int) $this->scalar(
                 'SELECT COUNT(*) FROM `{p}alumni` WHERE ' . $where . ' AND national_id_hash = ""',
                 $params
+            ),
+        );
+    }
+
+    // -------------------------------------------------------- class groups
+
+    /**
+     * Staff of one institution keyed by username.
+     *
+     * RMS uses the national ID as `people_id`, and the staff transfer stores
+     * that as the username, so this doubles as a lookup from national ID to
+     * account without a query per group.
+     *
+     * @param int $schoolId
+     * @return array username => user id
+     */
+    public function staffByUsername($schoolId)
+    {
+        $map = array();
+        $rows = $this->all(
+            'SELECT id, username FROM `{p}users`'
+            . ' WHERE school_id = ? AND username IS NOT NULL AND username <> ""',
+            array((int) $schoolId)
+        );
+        foreach ($rows as $row) {
+            $map[(string) $row['username']] = (int) $row['id'];
+        }
+        return $map;
+    }
+
+    /**
+     * Creates or refreshes one class group.
+     *
+     * Keyed by institution, academic year, semester and group code, so a
+     * repeat transfer updates the same row.
+     *
+     * @param array $data
+     * @return array array('id'=>int, 'created'=>bool)
+     */
+    public function upsertStudentGroup($data)
+    {
+        $now = date('Y-m-d H:i:s');
+        $schoolId = (int) arr($data, 'school_id', 0);
+
+        $existing = $this->one(
+            'SELECT id FROM `{p}student_groups`'
+            . ' WHERE school_id = ? AND academic_year = ? AND semester = ? AND group_code = ?',
+            array(
+                $schoolId,
+                (int) arr($data, 'academic_year', 0),
+                (int) arr($data, 'semester', 0),
+                (string) arr($data, 'group_code', ''),
+            )
+        );
+
+        $columns = array(
+            'grade'           => arr($data, 'grade', ''),
+            'group_name'      => arr($data, 'group_name', ''),
+            'group_abbr'      => arr($data, 'group_abbr', ''),
+            'teacher_idcard'  => arr($data, 'teacher_idcard', ''),
+            'teacher_name'    => arr($data, 'teacher_name', ''),
+            'advisor_user_id' => arr($data, 'advisor_user_id'),
+            'classroom_id'    => arr($data, 'classroom_id', ''),
+            'external_source' => arr($data, 'external_source', ''),
+            'updated_at'      => $now,
+        );
+
+        if ($existing !== null) {
+            $set = array();
+            $params = array();
+            foreach ($columns as $column => $value) {
+                $set[] = '`' . $column . '` = ?';
+                $params[] = $value;
+            }
+            $params[] = (int) $existing['id'];
+            $this->run(
+                'UPDATE `{p}student_groups` SET ' . implode(', ', $set) . ' WHERE id = ?',
+                $params
+            );
+            return array('id' => (int) $existing['id'], 'created' => false);
+        }
+
+        $columns['school_id'] = $schoolId;
+        $columns['academic_year'] = (int) arr($data, 'academic_year', 0);
+        $columns['semester'] = (int) arr($data, 'semester', 0);
+        $columns['group_code'] = arr($data, 'group_code', '');
+        $columns['created_at'] = $now;
+
+        $names = array_keys($columns);
+        $placeholders = array_fill(0, count($names), '?');
+        $this->run(
+            'INSERT INTO `{p}student_groups` (`' . implode('`, `', $names) . '`)'
+            . ' VALUES (' . implode(', ', $placeholders) . ')',
+            array_values($columns)
+        );
+        return array('id' => $this->lastId(), 'created' => true);
+    }
+
+    /**
+     * Attaches students to the advisor of the group they are in.
+     *
+     * Done as one statement rather than a row at a time: there are thousands
+     * of students and the join is on an indexed column. Only rows that would
+     * actually change are touched, so the reported number is the number of
+     * students whose advisor moved.
+     *
+     * @param int $schoolId
+     * @return int students linked
+     */
+    public function linkStudentsToAdvisors($schoolId)
+    {
+        $schoolId = (int) $schoolId;
+
+        $affected = $this->run(
+            'UPDATE `{p}alumni` a'
+            . ' JOIN `{p}student_groups` g'
+            . '   ON g.school_id = a.school_id AND g.group_code = a.group_code'
+            . ' SET a.advisor_user_id = g.advisor_user_id, a.updated_at = ?'
+            . ' WHERE a.school_id = ?'
+            . '   AND a.group_code <> ""'
+            . '   AND g.advisor_user_id IS NOT NULL'
+            . '   AND (a.advisor_user_id IS NULL OR a.advisor_user_id <> g.advisor_user_id)',
+            array(date('Y-m-d H:i:s'), $schoolId)
+        )->rowCount();
+
+        return (int) $affected;
+    }
+
+    /**
+     * Class groups of one institution, newest year first.
+     *
+     * @param int $schoolId
+     * @param int $limit
+     * @return array
+     */
+    public function studentGroupRows($schoolId, $limit = 500)
+    {
+        return $this->all(
+            'SELECT g.*, u.full_name AS advisor_name,'
+            . ' (SELECT COUNT(*) FROM `{p}alumni` a'
+            . '    WHERE a.school_id = g.school_id AND a.group_code = g.group_code) AS student_count'
+            . ' FROM `{p}student_groups` g'
+            . ' LEFT JOIN `{p}users` u ON u.id = g.advisor_user_id'
+            . ' WHERE g.school_id = ?'
+            . ' ORDER BY g.academic_year DESC, g.semester DESC, g.group_code ASC'
+            . ' LIMIT ' . (int) $limit,
+            array((int) $schoolId)
+        );
+    }
+
+    /**
+     * @param int $schoolId
+     * @return array
+     */
+    public function studentGroupSummary($schoolId)
+    {
+        $schoolId = (int) $schoolId;
+        return array(
+            'groups'       => (int) $this->scalar(
+                'SELECT COUNT(*) FROM `{p}student_groups` WHERE school_id = ?', array($schoolId)
+            ),
+            'with_advisor' => (int) $this->scalar(
+                'SELECT COUNT(*) FROM `{p}student_groups`'
+                . ' WHERE school_id = ? AND advisor_user_id IS NOT NULL', array($schoolId)
+            ),
+            'students_linked' => (int) $this->scalar(
+                'SELECT COUNT(*) FROM `{p}alumni`'
+                . ' WHERE school_id = ? AND advisor_user_id IS NOT NULL', array($schoolId)
             ),
         );
     }

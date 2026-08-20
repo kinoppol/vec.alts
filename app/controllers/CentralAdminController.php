@@ -309,7 +309,7 @@ class CentralAdminController extends Controller
         $schoolId = is_post() ? post_int('school_id', 0) : query_int('school_id', 0);
 
         // The JSON actions the browser loop calls.
-        if ($action === 'count' || $action === 'sync_batch') {
+        if ($action === 'count' || $action === 'sync_batch' || $action === 'groups') {
             if (!csrf_check()) {
                 $this->jsonError('คำขอหมดอายุ กรุณาโหลดหน้านี้ใหม่');
             }
@@ -326,6 +326,31 @@ class CentralAdminController extends Controller
                 $this->jsonError('สถานศึกษานี้ยังไม่ได้กำหนดที่อยู่ระบบ RMS');
             }
             $importer = new RmsImporter($this->repo, $baseUrl);
+
+            if ($action === 'groups') {
+                // A few hundred rows and no password hashing, so this runs in
+                // one request rather than being driven a slice at a time.
+                @set_time_limit(0);
+
+                $fetch = $importer->fetchStudentGroups();
+                if (!$fetch['ok']) {
+                    $this->jsonError('ดึงข้อมูลกลุ่มเรียนไม่สำเร็จ: ' . $fetch['error']);
+                }
+
+                $summary = $importer->importStudentGroups($fetch['rows'], $schoolId);
+                // Only worth doing once the groups carry their advisors.
+                $summary['students_linked'] = $this->repo->linkStudentsToAdvisors($schoolId);
+
+                $this->repo->audit(
+                    'groups.import.rms',
+                    $school['name'],
+                    'groups=' . $summary['added'] . '+' . $summary['updated']
+                        . ' linked=' . $summary['students_linked'],
+                    $this->actor()
+                );
+
+                $this->json(true, $summary);
+            }
 
             if ($action === 'count') {
                 $count = $importer->countStudents();
@@ -362,6 +387,7 @@ class CentralAdminController extends Controller
             'selectedSchool' => $selected,
             'baseUrl'        => $selected > 0 ? $this->repo->rmsBaseUrlFor($selected) : '',
             'chunk'          => RmsImporter::STUDENT_CHUNK,
+            'groupSummary'   => $selected > 0 ? $this->repo->studentGroupSummary($selected) : null,
             'studentCount'   => $selected > 0
                 ? $this->repo->alumniCount(array(
                     'school_id' => $selected, 'study_state' => 'studying',

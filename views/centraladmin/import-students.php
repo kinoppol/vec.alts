@@ -114,6 +114,54 @@
     </div>
   </div>
 
+  <div class="card card-lg" style="max-width:720px;margin-top:20px">
+    <h3 style="font-size:16px;font-weight:700;margin-bottom:6px">กลุ่มเรียนและครูที่ปรึกษา</h3>
+    <p class="hint" style="margin:0 0 16px">
+      ดึงกลุ่มเรียน (<code>std2018_studentgroup</code>) แล้วผูกครูที่ปรึกษาให้แต่ละกลุ่ม
+      โดยจับคู่จาก <b>เลขประจำตัวประชาชน</b> ของครู (<code>teacherIdcard</code>)
+      กับบัญชีบุคลากรที่โอนมาแล้ว จากนั้นกำหนดครูที่ปรึกษาให้นักเรียนทุกคนตามกลุ่มเรียนของตน
+    </p>
+
+    <?php if ($groupSummary !== null && $groupSummary['groups'] > 0): ?>
+      <dl class="kv" style="margin-bottom:16px">
+        <dt>กลุ่มเรียนในระบบ</dt><dd><?php echo e(num($groupSummary['groups'])); ?> กลุ่ม</dd>
+        <dt>กลุ่มที่มีครูที่ปรึกษา</dt><dd><?php echo e(num($groupSummary['with_advisor'])); ?> กลุ่ม</dd>
+        <dt>นักเรียนที่มีครูที่ปรึกษา</dt><dd><?php echo e(num($groupSummary['students_linked'])); ?> คน</dd>
+      </dl>
+    <?php endif; ?>
+
+    <div class="alert alert-info" style="margin-bottom:16px">
+      ควรโอน <b>ข้อมูลผู้ใช้ (บุคลากร)</b> และ <b>ข้อมูลนักเรียน</b> ให้เรียบร้อยก่อน
+      ครูที่ยังไม่มีบัญชีในระบบจะผูกไม่ได้ และนักเรียนที่ยังไม่ได้โอนก็จะยังไม่มีครูที่ปรึกษา
+    </div>
+
+    <div id="group-transfer"
+         data-endpoint="<?php echo e(url('centraladmin/import-students')); ?>"
+         data-school="<?php echo e($selectedSchool); ?>"
+         data-token="<?php echo e(csrf_token()); ?>">
+
+      <button type="button" class="btn btn-primary" data-group-start
+              data-confirm="โอนข้อมูลกลุ่มเรียนและผูกครูที่ปรึกษา?">
+        โอนกลุ่มเรียนและผูกครูที่ปรึกษา
+      </button>
+
+      <div data-group-panel hidden style="margin-top:18px">
+        <div class="cell-dim" data-group-status>กำลังดำเนินการ…</div>
+
+        <div class="grid-4" style="gap:12px;margin-top:14px">
+          <div><div class="kpi-label">กลุ่มเพิ่มใหม่</div><div class="kpi-value" style="font-size:22px" data-g-added>0</div></div>
+          <div><div class="kpi-label">กลุ่มปรับปรุง</div><div class="kpi-value" style="font-size:22px" data-g-updated>0</div></div>
+          <div><div class="kpi-label">ผูกครูได้</div><div class="kpi-value" style="font-size:22px" data-g-linked>0</div></div>
+          <div><div class="kpi-label">นักเรียนที่ผูกแล้ว</div><div class="kpi-value" style="font-size:22px" data-g-students>0</div></div>
+        </div>
+
+        <div class="alert alert-warn" data-g-warn hidden style="margin-top:14px">
+          <div data-g-warn-text></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="card" style="max-width:720px;margin-top:20px">
     <h3 style="font-size:15px;font-weight:700;margin-bottom:10px">ข้อมูลที่โอนเข้ามา</h3>
     <p class="cell-dim" style="line-height:1.9">
