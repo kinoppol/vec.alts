@@ -55,8 +55,9 @@ if (!isset($contactStates[$currentContact])) {
     <h3 style="margin-bottom:6px">ข้อมูลจากระบบ RMS</h3>
     <p class="panel-sub" style="margin-top:0">
       <?php if ($fromRms): ?>
-        ข้อมูลชุดนี้มาจากระบบ RMS จึงแก้ไขที่นี่ไม่ได้ — หากไม่ถูกต้องต้องแก้ที่ต้นทาง
-        แล้วโอนข้อมูลใหม่ มิฉะนั้นการแก้ไขจะถูกเขียนทับในการโอนครั้งถัดไป
+        ข้อมูลทะเบียนชุดนี้มาจากระบบ RMS จึงแก้ไขที่นี่ไม่ได้
+        หากไม่ถูกต้อง ให้แจ้งงานทะเบียนแก้ไขที่ <b>ระบบ ศธ.02 ออนไลน์</b>
+        แล้วโอนข้อมูลจากระบบ RMS เข้ามาใหม่
       <?php else: ?>
         ข้อมูลชุดนี้ไม่ได้มาจากระบบ RMS
       <?php endif; ?>
@@ -88,32 +89,27 @@ if (!isset($contactStates[$currentContact])) {
     <input type="hidden" name="id" value="<?php echo e($student['id']); ?>">
 
     <div class="panel">
-      <h3>ข้อมูลติดต่อ</h3>
+      <h3 style="margin-bottom:6px">ข้อมูลติดต่อ</h3>
+      <p class="panel-sub" style="margin-top:0">
+        แก้ไขได้ที่นี่เมื่อทราบข้อมูลใหม่ ระบบจะยึดค่าที่บันทึกไว้ในระบบนี้
+        และจะไม่ถูกเขียนทับเมื่อโอนข้อมูลจากระบบ RMS ครั้งต่อไป
+      </p>
+      <div class="alert alert-info" style="margin-bottom:16px">
+        <b>แนะนำ:</b> ควรแจ้งงานทะเบียนให้ปรับปรุงข้อมูลใน
+        <b>ระบบ ศธ.02 ออนไลน์</b> ซึ่งเป็นต้นทางของข้อมูลในระบบ RMS ด้วย
+        เพื่อให้ข้อมูลตรงกันทุกระบบ
+      </div>
       <div class="grid-2">
         <div>
           <label class="label" for="phone">เบอร์โทรศัพท์</label>
-          <?php if ($fromRms): ?>
-            <div class="input" style="background:var(--surface-2);border-style:dashed">
-              <?php echo e(trim((string) $student['phone']) !== '' ? $student['phone'] : '—'); ?>
-            </div>
-            <div class="hint">มาจากระบบ RMS แก้ไขไม่ได้</div>
-          <?php else: ?>
-            <input class="input" type="text" id="phone" name="phone" placeholder="08x-xxx-xxxx"
-                   value="<?php echo e($student['phone']); ?>">
-          <?php endif; ?>
+          <input class="input" type="text" id="phone" name="phone" placeholder="08x-xxx-xxxx"
+                 value="<?php echo e($student['phone']); ?>">
         </div>
 
         <div>
           <label class="label" for="email">อีเมล</label>
-          <?php if ($fromRms): ?>
-            <div class="input" style="background:var(--surface-2);border-style:dashed">
-              <?php echo e(trim((string) $student['email']) !== '' ? $student['email'] : '—'); ?>
-            </div>
-            <div class="hint">มาจากระบบ RMS แก้ไขไม่ได้</div>
-          <?php else: ?>
-            <input class="input" type="email" id="email" name="email" placeholder="อีเมลที่ติดต่อได้"
-                   value="<?php echo e($student['email']); ?>">
-          <?php endif; ?>
+          <input class="input" type="email" id="email" name="email" placeholder="อีเมลที่ติดต่อได้"
+                 value="<?php echo e($student['email']); ?>">
         </div>
 
         <div>

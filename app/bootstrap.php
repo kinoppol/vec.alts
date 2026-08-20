@@ -93,6 +93,21 @@ $view->share('repo', $repo);
 $siteTitle = '';
 try {
     $siteTitle = (string) $repo->setting('site_title', '');
+
+    /*
+     * Whether errors show their detail is a switch in the settings screen, so
+     * it can be turned on to diagnose a problem and off again without editing
+     * a file on the server. It lives in the database rather than config.php
+     * because config/ is often left read-only after installation.
+     *
+     * Failures that happen before this point — the database being unreachable,
+     * for instance — still follow config.php, which errs towards hiding detail.
+     */
+    $debugSetting = $repo->setting('app_debug', null);
+    if ($debugSetting !== null) {
+        $config['app']['debug'] = ($debugSetting === '1');
+        ini_set('display_errors', $config['app']['debug'] ? '1' : '0');
+    }
 } catch (PDOException $e) {
     $siteTitle = '';
 }

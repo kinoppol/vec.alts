@@ -221,11 +221,12 @@ class AdvisorController extends Controller
         if (is_post()) {
             csrf_verify();
 
+            // Contact details may be corrected here even on an RMS record.
+            // updateAlumniContact() marks the row so the next transfer leaves
+            // them alone, which is what makes the correction stick.
             $this->repo->updateAlumniContact($studentId, array(
-                // Kept as they are for an RMS record rather than read from the
-                // form, so a crafted request cannot get round the lock either.
-                'phone'   => $fromRms ? $student['phone'] : post('phone'),
-                'email'   => $fromRms ? $student['email'] : post('email'),
+                'phone'   => post('phone'),
+                'email'   => post('email'),
                 'line_id' => post('line_id'),
                 'address' => post('address'),
             ));

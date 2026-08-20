@@ -69,6 +69,35 @@
       </div>
     </div>
 
+    <hr style="border:none;border-top:1px solid var(--border);margin:24px 0">
+
+    <h3 style="font-size:15px;font-weight:700;margin-bottom:6px">โหมดตรวจสอบข้อผิดพลาด</h3>
+    <p class="hint" style="margin:0 0 14px">
+      เปิดชั่วคราวเมื่อต้องการหาสาเหตุของปัญหา แล้ว<b>ปิดกลับทันทีเมื่อเสร็จ</b>
+    </p>
+
+    <div class="field">
+      <label class="label">
+        <input type="checkbox" name="app_debug" value="1"
+               aria-label="เปิดโหมดตรวจสอบข้อผิดพลาด"
+               <?php echo arr($settings, 'app_debug', '0') === '1' ? 'checked' : ''; ?>>
+        เปิดโหมดตรวจสอบข้อผิดพลาด (Debug mode)
+      </label>
+      <?php if (arr($settings, 'app_debug', '0') === '1'): ?>
+        <div class="alert alert-warn" style="margin-top:10px">
+          <b>ขณะนี้เปิดอยู่</b> — เมื่อเกิดข้อผิดพลาด ระบบจะแสดงรายละเอียดทางเทคนิค
+          เช่น ชื่อตารางและคอลัมน์ในฐานข้อมูล ให้ผู้ที่พบข้อผิดพลาดเห็น
+          รวมถึงผู้เข้าชมทั่วไปที่ยังไม่ได้เข้าสู่ระบบ
+          ไม่ควรเปิดค้างไว้บนเครื่องให้บริการจริง
+        </div>
+      <?php else: ?>
+        <div class="hint">
+          ปิดอยู่ — ผู้ใช้จะเห็นเพียงข้อความว่าเกิดข้อผิดพลาด
+          ส่วนรายละเอียดถูกบันทึกไว้ในไฟล์ log ที่ <code>storage/logs/</code>
+        </div>
+      <?php endif; ?>
+    </div>
+
     <button type="submit" class="btn btn-primary">บันทึกการตั้งค่า</button>
   </form>
 

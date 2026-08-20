@@ -542,6 +542,11 @@ class CentralAdminController extends Controller
             $this->repo->setSetting('allow_self_update', post('allow_self_update') === '1' ? '1' : '0');
             $this->repo->setSetting('allow_school_register', post('allow_school_register') === '1' ? '1' : '0');
 
+            // Kept apart from the other switches in the interface because
+            // leaving it on exposes database and path detail to whoever
+            // triggers an error, including the public.
+            $this->repo->setSetting('app_debug', post('app_debug') === '1' ? '1' : '0');
+
             // Only the origin is stored; the endpoint path lives in
             // RmsImporter::API_PATH so the integration cannot be repointed at
             // an arbitrary script from the settings screen.
@@ -570,6 +575,7 @@ class CentralAdminController extends Controller
                 'allow_self_update' => $this->repo->setting('allow_self_update', '1'),
                 'allow_school_register' => $this->repo->setting('allow_school_register', '1'),
                 'rms_base_url'      => $this->repo->setting('rms_base_url', ''),
+                'app_debug'         => $this->repo->setting('app_debug', '0'),
             ),
             'env'      => $this->environment(),
             'rmsApiPath' => RmsImporter::API_PATH,

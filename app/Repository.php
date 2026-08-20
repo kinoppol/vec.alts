@@ -820,6 +820,13 @@ class Repository
         );
 
         if ($existing !== null) {
+            // A number corrected in this system outranks the one RMS sends:
+            // whoever fixed it here had the person in front of them, and the
+            // upstream record often lags behind by a term or more.
+            if ((int) arr($existing, 'contact_overridden', 0) === 1) {
+                unset($columns['email'], $columns['phone']);
+            }
+
             // Hashing is the slow part of the whole transfer. The stored last
             // four digits say whether the number actually changed, so a repeat
             // run does no bcrypt work at all.
@@ -1287,20 +1294,47 @@ class Repository
         return $map;
     }
 
+    /**
+     * Saves the contact details someone entered in this system.
+     *
+     * When the phone number or email actually changes, the row is marked as
+     * corrected here. RMS owns those two fields and rewrites them on every
+     * transfer, so without the mark the correction would last only until the
+     * next one. Saving the form without touching them leaves the mark alone,
+     * so a row nobody has corrected keeps following RMS.
+     *
+     * @param int $id
+     * @param array $data
+     */
     public function updateAlumniContact($id, $data)
     {
-        $this->run(
-            'UPDATE `{p}alumni` SET phone = ?, email = ?, line_id = ?, address = ?, updated_at = ?'
-            . ' WHERE id = ?',
-            array(
-                arr($data, 'phone', ''),
-                arr($data, 'email', ''),
-                arr($data, 'line_id', ''),
-                arr($data, 'address', null),
-                date('Y-m-d H:i:s'),
-                (int) $id,
-            )
+        $id = (int) $id;
+        $phone = (string) arr($data, 'phone', '');
+        $email = (string) arr($data, 'email', '');
+
+        $existing = $this->one(
+            'SELECT phone, email FROM `{p}alumni` WHERE id = ?',
+            array($id)
         );
+        $changed = $existing !== null
+            && ((string) $existing['phone'] !== $phone || (string) $existing['email'] !== $email);
+
+        $sql = 'UPDATE `{p}alumni` SET phone = ?, email = ?, line_id = ?, address = ?,'
+            . ' updated_at = ?';
+        $params = array(
+            $phone,
+            $email,
+            arr($data, 'line_id', ''),
+            arr($data, 'address', null),
+            date('Y-m-d H:i:s'),
+        );
+        if ($changed) {
+            $sql .= ', contact_overridden = 1';
+        }
+        $sql .= ' WHERE id = ?';
+        $params[] = $id;
+
+        $this->run($sql, $params);
     }
 
     /**
