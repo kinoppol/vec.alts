@@ -8,10 +8,11 @@
  * @var int $total      matching rows, for the pager
  * @var int $page
  * @var int $perPage
+ * @var int $pages
+ * @var array $perPageOptions
  * @var array $departments
  */
 $cols = 'grid-template-columns:1.4fr 1fr 1.2fr .8fr';
-$pages = (int) ceil($total / max(1, $perPage));
 ?>
 <h1 class="page-title">ข้อมูลนักศึกษาในความดูแล</h1>
 <p class="page-sub">
@@ -74,7 +75,18 @@ $pages = (int) ceil($total / max(1, $perPage));
       <?php endif; ?>
       <button type="submit" class="btn btn-sm">ค้นหา</button>
     </div>
-    <span class="cell-dim">พบ <?php echo e(num($total)); ?> รายการ</span>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <label class="cell-dim" for="per" style="font-size:13px">แสดงต่อหน้า</label>
+      <select class="input input-sm" id="per" name="per" data-auto-submit style="width:84px">
+        <?php foreach ($perPageOptions as $option): ?>
+          <option value="<?php echo e($option); ?>"
+                  <?php echo (int) $perPage === (int) $option ? 'selected' : ''; ?>>
+            <?php echo e($option); ?>
+          </option>
+        <?php endforeach; ?>
+      </select>
+      <span class="cell-dim">พบ <?php echo e(num($total)); ?> รายการ</span>
+    </div>
   </form>
 
   <div class="table-head" style="<?php echo $cols; ?>">
@@ -121,19 +133,18 @@ $pages = (int) ceil($total / max(1, $perPage));
     <?php endforeach; ?>
   <?php endif; ?>
 
-  <?php if ($pages > 1): ?>
-    <div class="pager">
-      <?php for ($i = 1; $i <= $pages; $i++): ?>
-        <?php if ($i === $page): ?>
-          <span class="on"><?php echo e($i); ?></span>
-        <?php else: ?>
-          <a href="<?php echo e(url('advisor', array(
-              'page' => $i, 'q' => $filters['search'],
-              'state' => $filters['state'], 'dept' => $filters['department_id'],
-              'study' => $filters['study_state'],
-          ))); ?>"><?php echo e($i); ?></a>
-        <?php endif; ?>
-      <?php endfor; ?>
-    </div>
-  <?php endif; ?>
+  <?php echo $this->partial('layout/pager', array(
+      'route'   => 'advisor',
+      'page'    => $page,
+      'pages'   => $pages,
+      'total'   => $total,
+      'perPage' => $perPage,
+      'params'  => array(
+          'q'     => $filters['search'],
+          'state' => $filters['state'],
+          'dept'  => $filters['department_id'],
+          'study' => $filters['study_state'],
+          'per'   => $perPage,
+      ),
+  )); ?>
 </div>

@@ -4,7 +4,48 @@
  */
 class AdvisorController extends Controller
 {
-    const PER_PAGE = 25;
+    /** Rows per page when the advisor has not chosen otherwise. */
+    const PER_PAGE = 10;
+
+    /**
+     * Page sizes an advisor may pick.
+     *
+     * A method rather than a constant: array constants only arrived in
+     * PHP 5.6 and the production box runs 5.4.
+     *
+     * @return array
+     */
+    public static function perPageOptions()
+    {
+        return array(10, 25, 50, 100);
+    }
+
+    /**
+     * The page size for this request.
+     *
+     * A choice in the query string wins and is remembered, so paging through
+     * the list keeps it and coming back later does too. Anything not on the
+     * list is ignored rather than trusted.
+     *
+     * @return int
+     */
+    private function resolvePerPage()
+    {
+        $options = self::perPageOptions();
+
+        $requested = query_int('per', 0);
+        if (in_array($requested, $options, true)) {
+            $_SESSION['advisor_per_page'] = $requested;
+            return $requested;
+        }
+
+        if (isset($_SESSION['advisor_per_page'])
+            && in_array((int) $_SESSION['advisor_per_page'], $options, true)) {
+            return (int) $_SESSION['advisor_per_page'];
+        }
+
+        return self::PER_PAGE;
+    }
 
     public function index()
     {
@@ -12,6 +53,7 @@ class AdvisorController extends Controller
 
         $schoolId = $this->auth->schoolId();
         $page = max(1, query_int('page', 1));
+        $perPage = $this->resolvePerPage();
 
         // The caseload holds current students as well as graduates. Which of
         // them to show is the advisor's choice, not fixed here: an advisor
@@ -31,11 +73,20 @@ class AdvisorController extends Controller
             'state'         => query('state'),
             'study_state'   => $studyState,
             'department_id' => query_int('dept', 0),
-            'limit'         => self::PER_PAGE,
-            'offset'        => ($page - 1) * self::PER_PAGE,
+            'limit'         => $perPage,
+            'offset'        => ($page - 1) * $perPage,
         );
 
         $total = $this->repo->alumniCount($filters);
+
+        // A smaller page size, or a narrower filter, can leave the advisor
+        // past the end of the results.
+        $pages = (int) ceil($total / $perPage);
+        if ($page > $pages && $pages > 0) {
+            $page = $pages;
+            $filters['offset'] = ($page - 1) * $perPage;
+        }
+
         $rows = $this->repo->alumniList($filters);
 
         // Counters ignore the search box: they describe the whole caseload.
@@ -66,8 +117,10 @@ class AdvisorController extends Controller
             'counts'      => $counts,
             'filters'     => $filters,
             'total'       => $total,
-            'page'        => $page,
-            'perPage'     => self::PER_PAGE,
+            'page'           => $page,
+            'pages'          => $pages,
+            'perPage'        => $perPage,
+            'perPageOptions' => self::perPageOptions(),
             'departments' => $this->repo->departments($schoolId),
         ));
     }
