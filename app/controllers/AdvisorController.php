@@ -179,6 +179,84 @@ class AdvisorController extends Controller
     }
 
     /**
+     * Updates one current student in the advisor's caseload.
+     *
+     * The employment survey only opens once someone has finished, but their
+     * contact details and plans go stale long before then, so an advisor can
+     * keep those current at any time.
+     *
+     * Anything RMS supplies is left alone. It is the source of truth for those
+     * fields and overwrites them on the next transfer, so offering them for
+     * editing here would promise a change that quietly disappears.
+     */
+    public function student()
+    {
+        $this->auth->require_role(array('advisor', 'schooladmin'));
+
+        $studentId = is_post() ? post_int('id', 0) : query_int('id', 0);
+        $student = $this->repo->alumni($studentId);
+
+        if ($student === null || (int) $student['school_id'] !== (int) $this->auth->schoolId()) {
+            http_response_code(404);
+            flash('error', 'ไม่พบข้อมูลนักศึกษารายนี้ในสถานศึกษาของคุณ');
+            redirect('advisor');
+        }
+        if (arr($student, 'study_state', 'graduated') !== 'studying') {
+            // Graduates belong on the survey screen, which records a great
+            // deal more than this one does.
+            redirect(url('advisor/fill', array('id' => $studentId)));
+        }
+        if ($this->auth->is('advisor')
+            && (int) $student['advisor_user_id'] !== $this->auth->id()
+            && $student['advisor_user_id'] !== null) {
+            http_response_code(403);
+            flash('error', 'นักศึกษารายนี้อยู่ในความดูแลของครูท่านอื่น');
+            redirect('advisor');
+        }
+
+        // Contact details are RMS's to own only when the record came from
+        // there; one entered by hand or from a CSV has nothing to overwrite it.
+        $fromRms = arr($student, 'external_source', '') === RmsImporter::SOURCE;
+
+        if (is_post()) {
+            csrf_verify();
+
+            $this->repo->updateAlumniContact($studentId, array(
+                // Kept as they are for an RMS record rather than read from the
+                // form, so a crafted request cannot get round the lock either.
+                'phone'   => $fromRms ? $student['phone'] : post('phone'),
+                'email'   => $fromRms ? $student['email'] : post('email'),
+                'line_id' => post('line_id'),
+                'address' => post('address'),
+            ));
+
+            $this->repo->updateAlumniPlan($studentId, post('plan_after'), post('plan_note'));
+
+            $contactState = post('contact_state', 'ok');
+            if (!in_array($contactState, array('ok', 'hard', 'unreachable'), true)) {
+                $contactState = 'ok';
+            }
+            $this->repo->setAlumniContactState($studentId, $contactState, post('contact_note'));
+
+            $this->repo->audit(
+                'student.update.behalf',
+                $student['student_code'],
+                'ครูที่ปรึกษาปรับปรุงข้อมูลศิษย์ปัจจุบัน',
+                $this->actor()
+            );
+
+            flash('success', 'บันทึกข้อมูลของ ' . $student['first_name'] . ' เรียบร้อยแล้ว');
+            redirect('advisor');
+        }
+
+        $this->render('advisor/student', array(
+            'title'   => 'ปรับปรุงข้อมูลนักศึกษา',
+            'student' => $student,
+            'fromRms' => $fromRms,
+        ));
+    }
+
+    /**
      * Fill the survey in for one alumnus. Reuses the same view and the same
      * field-collection logic as the alumnus' own screen.
      */

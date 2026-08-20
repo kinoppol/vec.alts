@@ -511,6 +511,18 @@ class Repository
         );
     }
 
+    /**
+     * @param int $id
+     * @param string $role
+     */
+    public function setUserRole($id, $role)
+    {
+        $this->run(
+            'UPDATE `{p}users` SET role = ?, updated_at = ? WHERE id = ?',
+            array($role, date('Y-m-d H:i:s'), (int) $id)
+        );
+    }
+
     public function setUserStatus($id, $status)
     {
         $this->run(

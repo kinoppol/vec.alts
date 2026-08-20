@@ -45,6 +45,7 @@ $routes = array(
     'advisor'                   => array('AdvisorController', 'index'),
     'advisor/summary'           => array('AdvisorController', 'summary'),
     'advisor/fill'              => array('AdvisorController', 'fill'),
+    'advisor/student'           => array('AdvisorController', 'student'),
 
     'exec'                      => array('ExecController', 'dashboard'),
     'exec/departments'          => array('ExecController', 'departments'),
@@ -64,6 +65,7 @@ $routes = array(
     'centraladmin/school-create' => array('CentralAdminController', 'schoolCreate'),
     'centraladmin/school-status' => array('CentralAdminController', 'schoolStatus'),
     'centraladmin/users'        => array('CentralAdminController', 'users'),
+    'centraladmin/user-role'    => array('CentralAdminController', 'userRole'),
     'centraladmin/settings'     => array('CentralAdminController', 'settings'),
     'centraladmin/import-users' => array('CentralAdminController', 'importUsers'),
     'centraladmin/impersonate'  => array('CentralAdminController', 'impersonate'),

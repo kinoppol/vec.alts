@@ -5,8 +5,11 @@
  * @var array $users
  * @var array $schools
  * @var array $filters
+ * @var Auth $auth
  */
-$cols = 'grid-template-columns:1.5fr 1.1fr .8fr 1.2fr .75fr 1fr';
+$cols = 'grid-template-columns:1.4fr 1fr 1.15fr 1.1fr .7fr 1fr';
+$assignableRoles = staff_roles();
+unset($assignableRoles['centraladmin']);
 ?>
 <h1 class="page-title">ผู้ใช้งานระบบ</h1>
 <p class="page-sub">บัญชีบุคลากรทั้งหมดในทุกสถานศึกษา</p>
@@ -61,7 +64,37 @@ $cols = 'grid-template-columns:1.5fr 1.1fr .8fr 1.2fr .75fr 1fr';
           </div>
         </div>
         <span class="cell-dim"><?php echo e($user['school_name'] !== null ? $user['school_name'] : 'ระบบกลาง'); ?></span>
-        <span class="cell-dim"><?php echo e(role_label($user['role'])); ?></span>
+        <span>
+          <?php if ($user['role'] === 'centraladmin' || $user['school_id'] === null): ?>
+            <span class="cell-dim"><?php echo e(role_label($user['role'])); ?></span>
+            <?php if ($user['role'] === 'centraladmin'): ?>
+              <div class="cell-sub">เปลี่ยนสิทธิ์ไม่ได้</div>
+            <?php endif; ?>
+          <?php elseif ((int) $user['id'] === $auth->id()): ?>
+            <span class="cell-dim"><?php echo e(role_label($user['role'])); ?></span>
+            <div class="cell-sub">บัญชีของคุณเอง</div>
+          <?php else: ?>
+            <form method="post" action="<?php echo e(url('centraladmin/user-role')); ?>"
+                  style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+              <?php echo csrf_field(); ?>
+              <input type="hidden" name="id" value="<?php echo e($user['id']); ?>">
+              <input type="hidden" name="q" value="<?php echo e($filters['search']); ?>">
+              <input type="hidden" name="school" value="<?php echo e($filters['school_id']); ?>">
+              <input type="hidden" name="page" value="<?php echo e($page); ?>">
+              <select class="input input-sm" name="role" style="width:118px"
+                      aria-label="สิทธิ์ของ <?php echo e($user['full_name']); ?>">
+                <?php foreach ($assignableRoles as $code => $label): ?>
+                  <option value="<?php echo e($code); ?>"
+                          <?php echo $user['role'] === $code ? 'selected' : ''; ?>>
+                    <?php echo e($label); ?>
+                  </option>
+                <?php endforeach; ?>
+              </select>
+              <button type="submit" class="btn btn-sm"
+                      data-confirm="เปลี่ยนสิทธิ์ของ <?php echo e($user['full_name']); ?>?">บันทึก</button>
+            </form>
+          <?php endif; ?>
+        </span>
 
         <span>
           <?php

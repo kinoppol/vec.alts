@@ -442,6 +442,84 @@ class CentralAdminController extends Controller
         ));
     }
 
+    /**
+     * Changes what a staff account is allowed to do.
+     *
+     * Central administrators are not offered: promoting to that role hands
+     * over the whole system, and demoting one could leave nobody able to
+     * approve institutions or run migrations. Those accounts are created by
+     * install.php, which already requires the current administrator's password.
+     */
+    public function userRole()
+    {
+        $this->auth->require_role('centraladmin');
+        csrf_verify();
+
+        $id = post_int('id', 0);
+        $role = post('role');
+
+        $allowed = staff_roles();
+        unset($allowed['centraladmin']);
+
+        if (!isset($allowed[$role])) {
+            flash('error', 'บทบาทที่เลือกไม่ถูกต้อง');
+            redirect('centraladmin/users');
+        }
+
+        $user = $this->repo->user($id);
+        if ($user === null) {
+            flash('error', 'ไม่พบผู้ใช้งานรายนี้');
+            redirect('centraladmin/users');
+        }
+        if ((int) $user['id'] === $this->auth->id()) {
+            flash('error', 'ไม่สามารถเปลี่ยนสิทธิ์ของบัญชีตนเองได้');
+            redirect('centraladmin/users');
+        }
+        if ($user['role'] === 'centraladmin') {
+            flash('error', 'ไม่สามารถเปลี่ยนสิทธิ์ของผู้ดูแลระบบกลางได้');
+            redirect('centraladmin/users');
+        }
+        if ($user['school_id'] === null) {
+            // Every role other than the central administrator answers to an
+            // institution; without one the screens have nothing to scope to.
+            flash('error', 'บัญชีนี้ไม่ได้สังกัดสถานศึกษา จึงกำหนดบทบาทนี้ไม่ได้');
+            redirect('centraladmin/users');
+        }
+
+        if ($user['role'] === $role) {
+            flash('info', 'บทบาทเดิมอยู่แล้ว ไม่มีการเปลี่ยนแปลง');
+            redirect(url('centraladmin/users', $this->userListParams()));
+        }
+
+        $this->repo->setUserRole($id, $role);
+        $this->repo->audit(
+            'user.role',
+            $user['email'] !== null && $user['email'] !== '' ? $user['email'] : $user['username'],
+            $user['role'] . ' -> ' . $role,
+            $this->actor()
+        );
+
+        flash('success', 'เปลี่ยนสิทธิ์ของ ' . $user['full_name']
+            . ' เป็น ' . $allowed[$role] . ' เรียบร้อยแล้ว');
+        redirect(url('centraladmin/users', $this->userListParams()));
+    }
+
+    /**
+     * Filters to carry back to the listing after acting on one row.
+     * @return array
+     */
+    private function userListParams()
+    {
+        $params = array();
+        foreach (array('q', 'school', 'page') as $key) {
+            $value = post($key, '');
+            if ($value !== '' && $value !== '0') {
+                $params[$key] = $value;
+            }
+        }
+        return $params;
+    }
+
     public function settings()
     {
         $this->auth->require_role('centraladmin');

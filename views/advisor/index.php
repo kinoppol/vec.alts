@@ -123,7 +123,8 @@ $cols = 'grid-template-columns:1.4fr 1fr 1.2fr .8fr';
         <span><span class="badge badge-<?php echo e($badge[0]); ?>"><?php echo e($badge[1]); ?></span></span>
         <span class="cell-actions" style="justify-self:end">
           <?php if ($studying): ?>
-            <span class="cell-dim" style="font-size:12px">ยังไม่ถึงกำหนดสำรวจ</span>
+            <a class="btn btn-sm" style="color:var(--primary)"
+               href="<?php echo e(url('advisor/student', array('id' => $row['id']))); ?>">ปรับปรุงข้อมูล</a>
           <?php else: ?>
             <a class="btn btn-sm" style="color:var(--primary)"
                href="<?php echo e(url('advisor/fill', array('id' => $row['id']))); ?>">กรอกแทน</a>
