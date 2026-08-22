@@ -253,6 +253,38 @@ function unlock_file_present()
 }
 
 /**
+ * Copies the configured application name into the `site_title` setting.
+ *
+ * What the interface displays is the setting, which bootstrap.php prefers over
+ * $config['app']['name']; the config value is only the fallback for a database
+ * that has no setting yet. Migration 0002 seeds that row with the packaged
+ * default, so every path that runs the migrations has to follow up with this
+ * or the name chosen during installation is silently discarded.
+ *
+ * Call it only where the schema has just been created or recreated: on a
+ * working system the title belongs to whoever last edited it on the settings
+ * screen, and re-running the installer must not overwrite that.
+ *
+ * @param PDO $pdo
+ * @param string $prefix
+ * @param array $config
+ */
+function apply_site_title($pdo, $prefix, $config)
+{
+    $name = trim((string) arr(arr($config, 'app', array()), 'name', ''));
+    if ($name === '') {
+        return;
+    }
+    try {
+        $repo = new Repository($pdo, $prefix);
+        $repo->setSetting('site_title', $name);
+    } catch (PDOException $e) {
+        notice('warn', 'บันทึกชื่อระบบลงฐานข้อมูลไม่สำเร็จ'
+            . ' — แก้ไขได้ภายหลังที่เมนูตั้งค่าระบบ');
+    }
+}
+
+/**
  * @return bool
  */
 function installer_authorised($isInstalled)
@@ -352,32 +384,11 @@ if (is_post() && post('action') === 'save-database' && $authorised) {
                         ? 'ปรับปรุงโครงสร้างฐานข้อมูลแล้ว ' . $applied . ' รายการ'
                         : 'โครงสร้างฐานข้อมูลเป็นปัจจุบันอยู่แล้ว');
 
-                    /*
-                     * The name typed on this step has to reach the settings
-                     * table as well, not just config.php.
-                     *
-                     * What the interface displays is the `site_title` setting,
-                     * which bootstrap.php prefers over $config['app']['name'];
-                     * the config value is only the fallback for a database
-                     * that has no setting yet. Migration 0002 has just seeded
-                     * that row with the packaged default, so leaving it alone
-                     * would silently discard whatever was typed here.
-                     *
-                     * Only on a first install: re-running the installer over a
-                     * working system must not overwrite a title its
-                     * administrator has since changed on the settings screen.
-                     */
+                    // The schema is new here, so the name typed on this step
+                    // owns the title. On a re-run over a working system it
+                    // does not, and the guard keeps the installer out of it.
                     if (!$isInstalled) {
-                        $appName = trim((string) $config['app']['name']);
-                        if ($appName !== '') {
-                            try {
-                                $settingsRepo = new Repository($result['pdo'], $db['prefix']);
-                                $settingsRepo->setSetting('site_title', $appName);
-                            } catch (PDOException $e) {
-                                notice('warn', 'บันทึกชื่อระบบลงฐานข้อมูลไม่สำเร็จ'
-                                    . ' — แก้ไขได้ภายหลังที่เมนูตั้งค่าระบบ');
-                            }
-                        }
+                        apply_site_title($result['pdo'], $db['prefix'], $config);
                     }
 
                     $step = $isInstalled ? 'manage' : 'admin';
@@ -555,6 +566,14 @@ if (is_post() && post('action') === 'maintenance' && $authorised) {
                             . ' และสร้างโครงสร้างใหม่ ' . count($run['applied']) . ' รายการเรียบร้อยแล้ว');
                         notice('warn', 'ข้อมูลเดิมทั้งหมดถูกลบ รวมถึงบัญชีผู้ดูแลระบบกลาง'
                             . ' — กรุณาสร้างบัญชีใหม่ในขั้นตอนถัดไป');
+
+                        // The migrations just re-seeded the title with the
+                        // packaged default. This path skips the database step
+                        // and goes straight to creating the administrator, so
+                        // without this the name in config.php — the one the
+                        // installation was set up with — would be dropped.
+                        apply_site_title($pdo, $prefix, $config);
+
                         $config['installed'] = false;
                         vec_write_config($config);
                         $isInstalled = false;
