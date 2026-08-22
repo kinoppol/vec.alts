@@ -30,7 +30,7 @@ return array(
 
     // ------------------------------------------------------------------- site
     'app' => array(
-        'name'     => 'ระบบติดตามศิษย์เก่า',
+        'name'     => 'ระบบติดตามผู้สำเร็จการศึกษา',
         'timezone' => 'Asia/Bangkok',
         // 'production' hides error detail; 'development' shows it.
         'env'      => 'production',

@@ -567,10 +567,12 @@ class CentralAdminController extends Controller
             redirect('centraladmin/settings');
         }
 
+        $seeder = new Seeder($this->repo);
+
         $this->render('centraladmin/settings', array(
             'title'    => 'ตั้งค่าระบบ',
             'settings' => array(
-                'site_title'        => $this->repo->setting('site_title', 'ระบบติดตามศิษย์เก่า'),
+                'site_title'        => $this->repo->setting('site_title', 'ระบบติดตามผู้สำเร็จการศึกษา'),
                 'survey_year'       => $this->repo->surveyYear(),
                 'allow_self_update' => $this->repo->setting('allow_self_update', '1'),
                 'allow_school_register' => $this->repo->setting('allow_school_register', '1'),
@@ -579,7 +581,91 @@ class CentralAdminController extends Controller
             ),
             'env'      => $this->environment(),
             'rmsApiPath' => RmsImporter::API_PATH,
+            'demo'     => $seeder->demoSummary(),
+            'demoScale' => $seeder->realScale(),
+            // Shown once, then dropped: it carries the generated password.
+            'demoResult' => $this->takeDemoResult(),
         ));
+    }
+
+    /**
+     * Sample data for demonstrations, training and the screenshots in the
+     * user manual.
+     *
+     * Kept out of the settings form so that neither button can be reached by
+     * saving the settings, and so that seeding cannot happen as a side effect
+     * of an unrelated change. Both tasks are recorded in the audit log.
+     */
+    public function demoData()
+    {
+        $this->auth->require_role('centraladmin');
+
+        if (!is_post()) {
+            redirect('centraladmin/settings');
+        }
+        csrf_verify();
+
+        $seeder = new Seeder($this->repo);
+        $task = post('task');
+
+        if ($task === 'purge') {
+            // Scoped to the demo namespace, so it stays available even on an
+            // installation holding real data — that is the point of it.
+            $result = $seeder->purgeDemo($this->auth->id());
+            flash($result['ok'] ? 'success' : 'info', $result['message']);
+            $this->repo->audit('demo.purge', 'system', $result['message'], $this->actor());
+            redirect('centraladmin/settings');
+        }
+
+        if ($task !== 'seed') {
+            flash('error', 'คำสั่งไม่ถูกต้อง');
+            redirect('centraladmin/settings');
+        }
+
+        // On an installation that already holds real graduates, one click is
+        // not enough: the administrator has to type the confirmation first.
+        $scale = $seeder->realScale();
+        if ($scale['production'] && post('confirm') !== 'DEMO') {
+            flash('error', 'ฐานข้อมูลนี้มีข้อมูลจริงอยู่แล้ว ('
+                . number_format($scale['alumni']) . ' คน)'
+                . ' — ต้องพิมพ์คำยืนยัน DEMO ก่อนจึงจะสร้างข้อมูลตัวอย่างได้');
+            redirect('centraladmin/settings');
+        }
+
+        try {
+            $result = $seeder->seedDemo();
+        } catch (PDOException $e) {
+            app_log('demo seed failed: ' . $e->getMessage());
+            flash('error', 'สร้างข้อมูลตัวอย่างไม่สำเร็จ — ดูรายละเอียดในไฟล์ log');
+            redirect('centraladmin/settings');
+        }
+
+        if (!$result['ok']) {
+            flash('warn', $result['message']);
+            redirect('centraladmin/settings');
+        }
+
+        $this->repo->audit('demo.seed', 'system', $result['message'], $this->actor());
+        flash('success', $result['message']);
+
+        // Handed to the next request rather than the query string: the
+        // password would otherwise land in the address bar and the log.
+        $_SESSION['_demo_result'] = $result;
+        redirect('centraladmin/settings');
+    }
+
+    /**
+     * Reads and clears the one-shot seeding result.
+     * @return array|null
+     */
+    private function takeDemoResult()
+    {
+        if (!isset($_SESSION['_demo_result'])) {
+            return null;
+        }
+        $result = $_SESSION['_demo_result'];
+        unset($_SESSION['_demo_result']);
+        return is_array($result) ? $result : null;
     }
 
     /**

@@ -39,10 +39,10 @@ $val = function ($key, $default = '') use ($status) {
     <a class="btn btn-sm" href="<?php echo e(url('advisor')); ?>" style="margin-bottom:16px">← กลับรายชื่อ</a>
   <?php endif; ?>
 
-  <h1 class="page-title"><?php echo $onBehalf ? 'กรอกข้อมูลแทนศิษย์เก่า' : 'ข้อมูลศิษย์เก่า'; ?></h1>
+  <h1 class="page-title"><?php echo $onBehalf ? 'กรอกข้อมูลแทนผู้สำเร็จการศึกษา' : 'ข้อมูลผู้สำเร็จการศึกษา'; ?></h1>
   <p class="page-sub">
     <?php if ($onBehalf): ?>
-      บันทึกข้อมูลแทนศิษย์เก่าที่ติดต่อได้ · ปีสำรวจ <?php echo e($year); ?>
+      บันทึกข้อมูลแทนผู้สำเร็จการศึกษาที่ติดต่อได้ · ปีสำรวจ <?php echo e($year); ?>
     <?php else: ?>
       อัปเดตข้อมูลส่วนตัวและสถานะปัจจุบันของคุณ เพื่อให้สถานศึกษาติดตามและช่วยเหลือได้ · ปีสำรวจ <?php echo e($year); ?>
     <?php endif; ?>

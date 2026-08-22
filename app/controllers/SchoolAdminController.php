@@ -174,7 +174,7 @@ class SchoolAdminController extends Controller
         );
 
         $this->render('schooladmin/alumni', array(
-            'title'       => 'ข้อมูลศิษย์เก่า',
+            'title'       => 'ข้อมูลผู้สำเร็จการศึกษา',
             'rows'        => $this->repo->alumniList($filters),
             'total'       => $this->repo->alumniCount($filters),
             'filters'     => $filters,
@@ -244,7 +244,10 @@ class SchoolAdminController extends Controller
         $result = null;
         if (is_post()) {
             csrf_verify();
-            $result = $this->runImport();
+            // "ตรวจสอบไฟล์" reads and validates the whole file but writes
+            // nothing, so a roster can be checked against the live database
+            // before anything is committed to it.
+            $result = $this->runImport(post('mode') === 'check');
         }
 
         $this->render('schooladmin/import', array(
@@ -257,11 +260,24 @@ class SchoolAdminController extends Controller
     /**
      * Parses the uploaded CSV and inserts the rows.
      *
-     * @return array created / skipped / failed / errors
+     * With $dryRun the file is read and validated exactly as it would be for
+     * real — including the lookups that decide whether each row is new — but
+     * no statement is executed and no department is created. The counts it
+     * reports are therefore what a real run would do, provided the data has
+     * not changed in between.
+     *
+     * @param bool $dryRun validate only, write nothing
+     * @return array created / updated / skipped / failed / errors
      */
-    private function runImport()
+    private function runImport($dryRun = false)
     {
-        $out = array('created' => 0, 'skipped' => 0, 'failed' => 0, 'errors' => array());
+        $out = array(
+            'created' => 0, 'updated' => 0, 'skipped' => 0, 'failed' => 0,
+            'errors' => array(), 'dry_run' => (bool) $dryRun,
+            // Departments named in the file that do not exist yet. A real run
+            // creates these; a dry run only lists them.
+            'new_departments' => array(),
+        );
 
         if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
             $out['errors'][] = 'อัปโหลดไฟล์ไม่สำเร็จ กรุณาลองใหม่';
@@ -322,9 +338,20 @@ class SchoolAdminController extends Controller
 
         $line = 1;
         $db = $this->repo->db();
+        // Student codes an earlier row in this same file already accounted
+        // for. Only a dry run needs them: a real import has written the row by
+        // the time the repeat is read, so the lookup below finds it.
+        $seenCodes = array();
 
         while (($row = fgetcsv($handle)) !== false) {
             $line++;
+            // Keep the error list from growing without bound on a bad file.
+            // Checked here rather than at the end of the body so that rows
+            // rejected by validation — which never reach the end — count too.
+            if (count($out['errors']) > 100) {
+                $out['errors'][] = '... (แสดงเฉพาะ 100 รายการแรก)';
+                break;
+            }
             // Skip blank lines rather than reporting them as errors.
             if (count($row) === 1 && trim((string) $row[0]) === '') {
                 continue;
@@ -348,6 +375,12 @@ class SchoolAdminController extends Controller
                 'SELECT id FROM `{p}alumni` WHERE school_id = ? AND student_code = ?',
                 array($schoolId, $studentCode)
             );
+            // Nothing has been written, so a code repeated further down the
+            // file would look new a second time and the preview would promise
+            // more new records than the import can actually create.
+            if ($existing === null && $dryRun && isset($seenCodes[$studentCode])) {
+                $existing = array('id' => 0);
+            }
             if ($existing !== null && !$updateExisting) {
                 $out['skipped']++;
                 continue;
@@ -372,7 +405,14 @@ class SchoolAdminController extends Controller
             if ($departmentName !== '') {
                 $key = $this->normalise($departmentName);
                 if (!isset($departments[$key])) {
-                    $departments[$key] = $this->repo->createDepartment($schoolId, $departmentName);
+                    if ($dryRun) {
+                        // Not created, so remember the name and carry on with
+                        // no department rather than inventing an id.
+                        $out['new_departments'][$key] = $departmentName;
+                        $departments[$key] = null;
+                    } else {
+                        $departments[$key] = $this->repo->createDepartment($schoolId, $departmentName);
+                    }
                 }
                 $departmentId = $departments[$key];
             }
@@ -380,6 +420,16 @@ class SchoolAdminController extends Controller
             $gradYear = (int) $get('graduation_year', '0');
             if ($gradYear < 2400) {
                 $gradYear = $defaultYear;
+            }
+
+            if ($dryRun) {
+                if ($existing !== null) {
+                    $out['updated']++;
+                } else {
+                    $out['created']++;
+                }
+                $seenCodes[$studentCode] = true;
+                continue;
             }
 
             try {
@@ -407,6 +457,7 @@ class SchoolAdminController extends Controller
                         );
                     }
                     $db->commit();
+                    $out['updated']++;
                 } else {
                     $this->repo->createAlumni(array(
                         'school_id'       => $schoolId,
@@ -424,8 +475,8 @@ class SchoolAdminController extends Controller
                         'address'         => $get('address'),
                         'study_state'     => $importAs,
                     ));
+                    $out['created']++;
                 }
-                $out['created']++;
             } catch (PDOException $e) {
                 if ($db->inTransaction()) {
                     $db->rollBack();
@@ -433,21 +484,21 @@ class SchoolAdminController extends Controller
                 $out['failed']++;
                 $out['errors'][] = 'บรรทัด ' . $line . ' (' . $studentCode . '): ' . $e->getMessage();
             }
-
-            // Keep the error list from growing without bound on a bad file.
-            if (count($out['errors']) > 100) {
-                $out['errors'][] = '... (แสดงเฉพาะ 100 รายการแรก)';
-                break;
-            }
         }
 
         fclose($handle);
-        $this->repo->audit(
-            'alumni.import',
-            $_FILES['file']['name'],
-            'created=' . $out['created'] . ' skipped=' . $out['skipped'] . ' failed=' . $out['failed'],
-            $this->actor()
-        );
+        $out['new_departments'] = array_values($out['new_departments']);
+
+        // A dry run changed nothing, so there is nothing to record.
+        if (!$dryRun) {
+            $this->repo->audit(
+                'alumni.import',
+                $_FILES['file']['name'],
+                'created=' . $out['created'] . ' updated=' . $out['updated']
+                    . ' skipped=' . $out['skipped'] . ' failed=' . $out['failed'],
+                $this->actor()
+            );
+        }
         return $out;
     }
 
@@ -458,6 +509,14 @@ class SchoolAdminController extends Controller
      */
     private function normalise($value)
     {
-        return mb_strtolower(trim((string) $value));
+        $value = mb_strtolower(trim((string) $value));
+        /*
+         * The format shown on the import screen marks the required columns
+         * with a star — `student_code*`. People build their file by copying
+         * that line, so accept the star as part of the annotation rather than
+         * part of the column name, and reject the file for a real reason or
+         * not at all.
+         */
+        return rtrim($value, " *");
     }
 }

@@ -17,7 +17,7 @@ unset($roles['centraladmin']); // only the central admin creates central admins
 
 <div style="display:flex;gap:12px;margin-bottom:22px;flex-wrap:wrap">
   <a class="btn btn-primary" href="<?php echo e(url('schooladmin', array('new' => 1))); ?>">+ เพิ่มผู้ใช้งาน</a>
-  <a class="btn" href="<?php echo e(url('schooladmin/import')); ?>">นำเข้าข้อมูลศิษย์เก่า (CSV)</a>
+  <a class="btn" href="<?php echo e(url('schooladmin/import')); ?>">นำเข้าข้อมูลผู้สำเร็จการศึกษา (CSV)</a>
 </div>
 
 <?php if ($showForm): ?>
@@ -119,7 +119,10 @@ unset($roles['centraladmin']); // only the central admin creates central admins
             <input type="hidden" name="id" value="<?php echo e($user['id']); ?>">
             <?php if ($user['status'] === 'active'): ?>
               <button type="submit" name="status" value="suspended" class="btn btn-sm"
-                      data-confirm="ระงับการใช้งานบัญชีนี้?">ระงับ</button>
+                      data-confirm-title="ระงับการใช้งานบัญชีนี้?"
+                      data-confirm-ok="ระงับการใช้งาน"
+                      data-confirm-danger
+                      data-confirm="<?php echo e($user['full_name']); ?>&#10;บัญชีนี้จะเข้าสู่ระบบไม่ได้จนกว่าจะเปิดใช้งานอีกครั้ง">ระงับ</button>
             <?php else: ?>
               <button type="submit" name="status" value="active" class="btn btn-sm"
                       style="color:var(--primary)">เปิดใช้งาน</button>

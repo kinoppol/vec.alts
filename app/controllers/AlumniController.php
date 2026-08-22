@@ -10,7 +10,7 @@ class AlumniController extends Controller
 
         $alumni = $this->repo->alumni($this->auth->id());
         if ($alumni === null) {
-            flash('error', 'ไม่พบข้อมูลศิษย์เก่าของบัญชีนี้');
+            flash('error', 'ไม่พบข้อมูลผู้สำเร็จการศึกษาของบัญชีนี้');
             $this->auth->logout();
             redirect('login');
         }

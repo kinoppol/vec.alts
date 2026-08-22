@@ -351,6 +351,35 @@ if (is_post() && post('action') === 'save-database' && $authorised) {
                     notice('success', $applied > 0
                         ? 'ปรับปรุงโครงสร้างฐานข้อมูลแล้ว ' . $applied . ' รายการ'
                         : 'โครงสร้างฐานข้อมูลเป็นปัจจุบันอยู่แล้ว');
+
+                    /*
+                     * The name typed on this step has to reach the settings
+                     * table as well, not just config.php.
+                     *
+                     * What the interface displays is the `site_title` setting,
+                     * which bootstrap.php prefers over $config['app']['name'];
+                     * the config value is only the fallback for a database
+                     * that has no setting yet. Migration 0002 has just seeded
+                     * that row with the packaged default, so leaving it alone
+                     * would silently discard whatever was typed here.
+                     *
+                     * Only on a first install: re-running the installer over a
+                     * working system must not overwrite a title its
+                     * administrator has since changed on the settings screen.
+                     */
+                    if (!$isInstalled) {
+                        $appName = trim((string) $config['app']['name']);
+                        if ($appName !== '') {
+                            try {
+                                $settingsRepo = new Repository($result['pdo'], $db['prefix']);
+                                $settingsRepo->setSetting('site_title', $appName);
+                            } catch (PDOException $e) {
+                                notice('warn', 'บันทึกชื่อระบบลงฐานข้อมูลไม่สำเร็จ'
+                                    . ' — แก้ไขได้ภายหลังที่เมนูตั้งค่าระบบ');
+                            }
+                        }
+                    }
+
                     $step = $isInstalled ? 'manage' : 'admin';
                 }
             }

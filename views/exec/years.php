@@ -27,7 +27,7 @@
 
   <div class="table">
     <div class="table-head" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr">
-      <span>ปีการศึกษา</span><span>ศิษย์เก่า</span><span>ตอบแล้ว</span><span>มีงาน/ศึกษาต่อ</span><span>อัตรา</span>
+      <span>ปีการศึกษา</span><span>ทั้งหมด</span><span>ตอบแล้ว</span><span>มีงาน/ศึกษาต่อ</span><span>อัตรา</span>
     </div>
     <?php foreach (array_reverse($years) as $row): ?>
       <div class="table-row" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr">

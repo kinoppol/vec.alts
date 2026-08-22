@@ -273,7 +273,7 @@ class AdvisorController extends Controller
 
         if ($alumni === null || (int) $alumni['school_id'] !== (int) $this->auth->schoolId()) {
             http_response_code(404);
-            flash('error', 'ไม่พบข้อมูลศิษย์เก่ารายนี้ในสถานศึกษาของคุณ');
+            flash('error', 'ไม่พบข้อมูลผู้สำเร็จการศึกษารายนี้ในสถานศึกษาของคุณ');
             redirect('advisor');
         }
         // The roster no longer offers current students here, but a hand-typed
@@ -289,7 +289,7 @@ class AdvisorController extends Controller
             && (int) $alumni['advisor_user_id'] !== $this->auth->id()
             && $alumni['advisor_user_id'] !== null) {
             http_response_code(403);
-            flash('error', 'ศิษย์เก่ารายนี้อยู่ในความดูแลของครูท่านอื่น');
+            flash('error', 'ผู้สำเร็จการศึกษารายนี้อยู่ในความดูแลของครูท่านอื่น');
             redirect('advisor');
         }
 

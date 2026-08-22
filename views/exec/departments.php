@@ -12,7 +12,7 @@ $cols = 'grid-template-columns:1.6fr .8fr .8fr .8fr 1.2fr';
 
 <div class="table">
   <div class="table-head" style="<?php echo $cols; ?>">
-    <span>สาขาวิชา</span><span>ศิษย์เก่า</span><span>ตอบแล้ว</span><span>มีงาน/ศึกษาต่อ</span><span>อัตรา</span>
+    <span>สาขาวิชา</span><span>ทั้งหมด</span><span>ตอบแล้ว</span><span>มีงาน/ศึกษาต่อ</span><span>อัตรา</span>
   </div>
 
   <?php if (!$departments): ?>

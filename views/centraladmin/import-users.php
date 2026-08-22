@@ -247,7 +247,9 @@ chcon -R -t httpd_sys_rw_content_t uploads</div>
                 data-busy-message="กำลังตรวจสอบข้อมูลจากระบบ RMS">ตรวจสอบข้อมูลก่อน</button>
         <button type="submit" name="action" value="import" class="btn btn-primary"
                 data-busy-message="กำลังโอนข้อมูลจากระบบ RMS"
-                data-confirm="เริ่มโอนข้อมูลผู้ใช้จากระบบ RMS?">เริ่มโอนข้อมูล</button>
+                data-confirm-title="เริ่มโอนข้อมูลผู้ใช้?"
+                data-confirm-ok="เริ่มโอนข้อมูล"
+                data-confirm="ระบบจะดึงข้อมูลผู้ใช้ทั้งหมดจาก RMS เข้ามาปรับปรุงในฐานข้อมูล&#10;ระหว่างนี้อย่าปิดหน้าจอจนกว่าจะเสร็จ">เริ่มโอนข้อมูล</button>
       </div>
     </form>
 

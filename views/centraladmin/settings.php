@@ -4,6 +4,9 @@
  *
  * @var array $settings
  * @var array $env  runtime facts, useful when comparing XAMPP with the server
+ * @var array $demo what the demo namespace currently holds
+ * @var array $demoScale how much real data this installation carries
+ * @var array|null $demoResult one-shot result of a seeding run, incl. password
  */
 ?>
 <h1 class="page-title">ตั้งค่าระบบ</h1>
@@ -24,14 +27,14 @@
       <label class="label" for="survey_year">ปีสำรวจปัจจุบัน (พ.ศ.)</label>
       <input class="input" type="number" id="survey_year" name="survey_year" min="2500" max="2700"
              value="<?php echo e(arr($settings, 'survey_year', '')); ?>">
-      <div class="hint">แบบสำรวจที่ศิษย์เก่ากรอกจะถูกบันทึกไว้ในปีนี้</div>
+      <div class="hint">แบบสำรวจที่ผู้สำเร็จการศึกษากรอกจะถูกบันทึกไว้ในปีนี้</div>
     </div>
 
     <div class="field">
       <label class="label">
-        <input type="checkbox" name="allow_self_update" value="1" aria-label="เปิดให้ศิษย์เก่าแก้ไขข้อมูลของตนเอง"
+        <input type="checkbox" name="allow_self_update" value="1" aria-label="เปิดให้ผู้สำเร็จการศึกษาแก้ไขข้อมูลของตนเอง"
                <?php echo arr($settings, 'allow_self_update', '1') === '1' ? 'checked' : ''; ?>>
-        เปิดให้ศิษย์เก่าแก้ไขข้อมูลของตนเอง
+        เปิดให้ผู้สำเร็จการศึกษาแก้ไขข้อมูลของตนเอง
       </label>
       <div class="hint">ถ้าปิด จะกรอกได้เฉพาะครูที่ปรึกษาและผู้ดูแลสถานศึกษา</div>
     </div>
@@ -104,6 +107,108 @@
   <p class="hint" style="margin-top:16px">
     สั่งโอนข้อมูลได้ที่เมนู <a href="<?php echo e(url('centraladmin/import-users')); ?>">โอนข้อมูลผู้ใช้</a>
   </p>
+</div>
+
+<div class="card card-lg" style="max-width:640px;margin-bottom:22px">
+  <h3 style="font-size:16px;font-weight:700;margin-bottom:6px">ข้อมูลตัวอย่างสำหรับสาธิตและจับภาพหน้าจอ</h3>
+  <p class="cell-dim" style="margin-bottom:18px">
+    สร้างสถานศึกษาสมมติพร้อมผู้ใช้งานครบทุกบทบาท ไว้ใช้สาธิต อบรม
+    หรือจับภาพหน้าจอประกอบคู่มือ โดยไม่ต้องใช้บัญชีและข้อมูลของบุคคลจริง
+    ข้อมูลชุดนี้ตั้งชื่อกำกับว่า <b>(ข้อมูลทดสอบ)</b> ทุกแห่ง และลบออกได้ในคลิกเดียว
+  </p>
+
+  <?php if ($demoResult !== null): ?>
+    <div class="alert alert-success" style="margin-bottom:18px">
+      <b>สร้างข้อมูลตัวอย่างเรียบร้อยแล้ว</b>
+      <p style="margin:10px 0 6px">
+        รหัสผ่านของบัญชีตัวอย่างทุกบัญชี — <b>แสดงเพียงครั้งเดียว</b> โปรดคัดลอกไว้ก่อนออกจากหน้านี้
+      </p>
+      <p style="margin:0 0 14px">
+        <code style="font-size:16px;font-weight:700;letter-spacing:.5px"><?php echo e($demoResult['password']); ?></code>
+      </p>
+      <table class="table" style="margin-bottom:12px">
+        <thead><tr><th>บทบาท</th><th>อีเมลสำหรับเข้าสู่ระบบ</th></tr></thead>
+        <tbody>
+        <?php foreach ($demoResult['staff'] as $account): ?>
+          <tr>
+            <td><?php echo e($account['role']); ?></td>
+            <td><code><?php echo e($account['login']); ?></code></td>
+          </tr>
+        <?php endforeach; ?>
+        </tbody>
+      </table>
+      <table class="table">
+        <thead><tr><th>บทบาท</th><th>รหัสนักศึกษา</th><th>เลขบัตรประชาชน (รหัสผ่าน)</th></tr></thead>
+        <tbody>
+        <?php foreach ($demoResult['learners'] as $account): ?>
+          <tr>
+            <td><?php echo e($account['role']); ?></td>
+            <td><code><?php echo e($account['code']); ?></code></td>
+            <td><code><?php echo e($account['idcard']); ?></code></td>
+          </tr>
+        <?php endforeach; ?>
+        </tbody>
+      </table>
+      <p class="hint" style="margin:12px 0 0">
+        ผู้เรียนตัวอย่างคนอื่นใช้รหัสถัดไปเรียงกัน เข้าสู่ระบบผ่านแท็บผู้เรียนด้วยรหัสนักศึกษาและเลขบัตรประชาชน
+      </p>
+    </div>
+  <?php endif; ?>
+
+  <?php if ($demo['present']): ?>
+    <dl class="kv" style="margin-bottom:18px">
+      <dt>สถานศึกษาตัวอย่าง</dt><dd><?php echo e(number_format($demo['schools'])); ?> แห่ง</dd>
+      <dt>ผู้ใช้งานตัวอย่าง</dt><dd><?php echo e(number_format($demo['users'])); ?> บัญชี</dd>
+      <dt>ผู้สำเร็จการศึกษา</dt><dd><?php echo e(number_format($demo['graduates'])); ?> คน</dd>
+      <dt>นักศึกษาปัจจุบัน</dt><dd><?php echo e(number_format($demo['students'])); ?> คน</dd>
+      <dt>คำตอบแบบสำรวจ</dt><dd><?php echo e(number_format($demo['answers'])); ?> รายการ</dd>
+    </dl>
+
+    <form method="post" action="<?php echo e(url('centraladmin/demo-data')); ?>">
+      <?php echo csrf_field(); ?>
+      <input type="hidden" name="task" value="purge">
+      <button type="submit" class="btn btn-danger"
+              data-confirm-title="ลบข้อมูลตัวอย่างทั้งหมด?"
+              data-confirm-ok="ลบข้อมูลตัวอย่าง"
+              data-confirm-danger
+              data-confirm="สถานศึกษาที่กำกับว่าเป็นข้อมูลทดสอบ พร้อมผู้ใช้งานและข้อมูลผู้เรียนที่ผูกอยู่ จะถูกลบออกทั้งหมด&#10;ข้อมูลจริงของสถานศึกษาอื่นไม่ได้รับผลกระทบ">ลบข้อมูลตัวอย่างทั้งหมด</button>
+      <div class="hint" style="margin-top:10px">
+        ลบเฉพาะสถานศึกษาที่ระบบสร้างไว้เป็นข้อมูลทดสอบ พร้อมผู้ใช้งานและข้อมูลผู้เรียนที่ผูกอยู่กับสถานศึกษาเหล่านั้น
+        ข้อมูลจริงของสถานศึกษาอื่นไม่ถูกแตะต้อง
+      </div>
+    </form>
+
+  <?php else: ?>
+    <?php if ($demoScale['production']): ?>
+      <div class="alert alert-warn" style="margin-bottom:18px">
+        <b>ฐานข้อมูลนี้มีข้อมูลจริงอยู่แล้ว</b> —
+        ผู้เรียน <?php echo e(number_format($demoScale['alumni'])); ?> คน
+        และผู้ใช้งาน <?php echo e(number_format($demoScale['users'])); ?> บัญชี
+        <p style="margin:8px 0 0">
+          ข้อมูลตัวอย่างจะถูกเก็บแยกและไม่ปะปนกับข้อมูลเหล่านี้ แต่จะปรากฏในหน้าสถานศึกษาทั้งหมดและรายงานภาพรวม
+          หากต้องการทดลอง แนะนำให้ทำบนฐานข้อมูลสำเนา (staging) ก่อน
+        </p>
+      </div>
+    <?php endif; ?>
+
+    <form method="post" action="<?php echo e(url('centraladmin/demo-data')); ?>">
+      <?php echo csrf_field(); ?>
+      <input type="hidden" name="task" value="seed">
+
+      <?php if ($demoScale['production']): ?>
+        <div class="field">
+          <label class="label" for="confirm">พิมพ์ <b>DEMO</b> เพื่อยืนยัน</label>
+          <input class="input" type="text" id="confirm" name="confirm" autocomplete="off"
+                 placeholder="DEMO" style="max-width:200px">
+        </div>
+      <?php endif; ?>
+
+      <button type="submit" class="btn btn-primary">สร้างข้อมูลตัวอย่าง</button>
+      <div class="hint" style="margin-top:10px">
+        ระบบจะสุ่มรหัสผ่านให้บัญชีตัวอย่างและแสดงบนหน้าจอครั้งเดียวหลังสร้างเสร็จ
+      </div>
+    </form>
+  <?php endif; ?>
 </div>
 
 <div class="card card-lg" style="max-width:640px">

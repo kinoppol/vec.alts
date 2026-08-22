@@ -16,7 +16,7 @@ $cols = 'grid-template-columns:1.4fr 1fr 1.2fr .8fr';
 ?>
 <h1 class="page-title">ข้อมูลนักศึกษาในความดูแล</h1>
 <p class="page-sub">
-  นักศึกษาปัจจุบันและศิษย์เก่าที่อยู่ในความดูแลของคุณ
+  นักศึกษาปัจจุบันและผู้สำเร็จการศึกษาที่อยู่ในความดูแลของคุณ
   · แบบสำรวจภาวะการมีงานทำกรอกได้เฉพาะผู้ที่สำเร็จการศึกษาแล้ว
   · ปีสำรวจ <?php echo e($filters['survey_year']); ?>
 </p>
@@ -32,11 +32,11 @@ $cols = 'grid-template-columns:1.4fr 1fr 1.2fr .8fr';
   </div>
   <div class="card card-sm">
     <div class="kpi-value" style="font-size:28px;color:var(--primary)"><?php echo e(num($counts['graduated'])); ?></div>
-    <div class="stat-label" style="margin-top:0">ศิษย์เก่า</div>
+    <div class="stat-label" style="margin-top:0">ผู้สำเร็จการศึกษา</div>
   </div>
   <div class="card card-sm">
     <div class="kpi-value" style="font-size:28px"><?php echo e(num($counts['pending'])); ?></div>
-    <div class="stat-label" style="margin-top:0">ศิษย์เก่าที่รอติดตาม</div>
+    <div class="stat-label" style="margin-top:0">รอติดตาม</div>
   </div>
 </div>
 
@@ -47,7 +47,7 @@ $cols = 'grid-template-columns:1.4fr 1fr 1.2fr .8fr';
       <input class="input input-sm" type="search" name="q" placeholder="ค้นหาชื่อหรือรหัส"
              style="width:220px" value="<?php echo e($filters['search']); ?>">
       <select class="input input-sm" name="study" data-auto-submit style="width:150px"
-              aria-label="กรองศิษย์ปัจจุบันหรือศิษย์เก่า">
+              aria-label="กรองศิษย์ปัจจุบันหรือผู้สำเร็จการศึกษา">
         <option value="">ทั้งหมด</option>
         <?php foreach (study_states() as $code => $label): ?>
           <option value="<?php echo e($code); ?>"

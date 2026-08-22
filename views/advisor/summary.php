@@ -14,11 +14,11 @@ foreach ($summary['by_status'] as $count) {
 }
 ?>
 <h1 class="page-title">สรุปกลุ่ม</h1>
-<p class="page-sub">สัดส่วนสถานะของศิษย์เก่าในความดูแล · ปีสำรวจ <?php echo e($year); ?></p>
+<p class="page-sub">สัดส่วนสถานะของผู้สำเร็จการศึกษาในความดูแล · ปีสำรวจ <?php echo e($year); ?></p>
 
 <div class="grid-4" style="margin-bottom:20px">
   <div class="card card-sm">
-    <div class="kpi-label">ศิษย์เก่าทั้งหมด</div>
+    <div class="kpi-label">ผู้สำเร็จการศึกษาทั้งหมด</div>
     <div class="kpi-value"><?php echo e(num($summary['total'])); ?></div>
   </div>
   <div class="card card-sm">

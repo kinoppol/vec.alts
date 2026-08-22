@@ -14,7 +14,7 @@ $cols = 'grid-template-columns:1.5fr 1fr .8fr 1fr 1fr .9fr';
 $pages = (int) ceil($total / max(1, $perPage));
 $studyFilter = (string) arr($filters, 'study_state', '');
 ?>
-<h1 class="page-title">ข้อมูลศิษย์เก่าและศิษย์ปัจจุบัน</h1>
+<h1 class="page-title">ข้อมูลผู้สำเร็จการศึกษาและศิษย์ปัจจุบัน</h1>
 <p class="page-sub">
   รายชื่อทั้งหมดของสถานศึกษา ทั้งผู้ที่กำลังศึกษาและผู้สำเร็จการศึกษา ·
   ปีสำรวจ <?php echo e($filters['survey_year']); ?>
@@ -96,13 +96,17 @@ $studyFilter = (string) arr($filters, 'study_state', '');
             <?php if ($studying): ?>
               <input type="hidden" name="study_state" value="graduated">
               <button type="submit" class="btn btn-sm"
-                      data-confirm="ยืนยันเปลี่ยน <?php echo e($row['student_code']); ?> เป็นสำเร็จการศึกษา? ข้อมูลที่กรอกไว้จะยังอยู่ครบ">
+                      data-confirm-title="เปลี่ยนเป็นสำเร็จการศึกษา?"
+                      data-confirm-ok="ยืนยันจบการศึกษา"
+                      data-confirm="รหัส <?php echo e($row['student_code']); ?>&#10;ข้อมูลที่กรอกไว้จะยังอยู่ครบ และรายการนี้จะเริ่มนับในรายงานภาวะการมีงานทำ">
                 🎓 จบแล้ว
               </button>
             <?php else: ?>
               <input type="hidden" name="study_state" value="studying">
               <button type="submit" class="btn btn-sm"
-                      data-confirm="ย้าย <?php echo e($row['student_code']); ?> กลับไปเป็นศิษย์ปัจจุบัน? รายการนี้จะหายไปจากรายงานภาวะการมีงานทำ">
+                      data-confirm-title="ย้ายกลับเป็นศิษย์ปัจจุบัน?"
+                      data-confirm-ok="ย้ายกลับ"
+                      data-confirm="รหัส <?php echo e($row['student_code']); ?>&#10;รายการนี้จะหายไปจากรายงานภาวะการมีงานทำ">
                 ↩ ยังไม่จบ
               </button>
             <?php endif; ?>

@@ -53,7 +53,10 @@ $lastResult = isset($lastResult) ? $lastResult : null;
   <form method="post" action="<?php echo e(url('admin/migrations')); ?>">
     <?php echo csrf_field(); ?>
     <button type="submit" name="action" value="rollback" class="btn btn-danger"
-            data-confirm="ย้อนกลับ migration ชุดล่าสุด? การกระทำนี้อาจลบตารางหรือคอลัมน์ที่สร้างไว้ และข้อมูลในนั้นจะหายไป">
+            data-confirm-title="ย้อนกลับ migration ชุดล่าสุด?"
+            data-confirm-ok="ย้อนกลับ"
+            data-confirm-danger
+            data-confirm="การกระทำนี้อาจลบตารางหรือคอลัมน์ที่สร้างไว้ และข้อมูลในนั้นจะหายไป">
       ย้อนกลับชุดล่าสุด (batch <?php echo e($env['batch']); ?>)
     </button>
   </form>

@@ -16,7 +16,7 @@ $cols = 'grid-template-columns:1.6fr 1fr 1fr 1fr';
     <div class="kpi-value" style="font-size:28px"><?php echo e(num($summary['schools'])); ?></div>
   </div>
   <div class="card card-sm">
-    <div class="kpi-label">ศิษย์เก่าในระบบ</div>
+    <div class="kpi-label">ผู้สำเร็จการศึกษาในระบบ</div>
     <div class="kpi-value" style="font-size:28px"><?php echo e(num($summary['alumni'])); ?></div>
   </div>
   <div class="card card-sm">
@@ -47,7 +47,7 @@ $cols = 'grid-template-columns:1.6fr 1fr 1fr 1fr';
   </div>
 
   <div class="table-head" style="<?php echo $cols; ?>">
-    <span>สถานศึกษา</span><span>จังหวัด</span><span>ศิษย์เก่า</span><span>สถานะ</span>
+    <span>สถานศึกษา</span><span>จังหวัด</span><span>จำนวน</span><span>สถานะ</span>
   </div>
 
   <?php if (!$schools): ?>
@@ -81,7 +81,10 @@ $cols = 'grid-template-columns:1.6fr 1fr 1fr 1fr';
             <input type="hidden" name="id" value="<?php echo e($school['id']); ?>">
             <?php if ($school['status'] === 'active'): ?>
               <button type="submit" name="status" value="suspended" class="btn btn-sm"
-                      data-confirm="ระงับการใช้งานสถานศึกษานี้?">ระงับ</button>
+                      data-confirm-title="ระงับการใช้งานสถานศึกษานี้?"
+                      data-confirm-ok="ระงับการใช้งาน"
+                      data-confirm-danger
+                      data-confirm="<?php echo e($school['name']); ?>&#10;ผู้ใช้งานของสถานศึกษานี้จะเข้าสู่ระบบไม่ได้จนกว่าจะเปิดใช้งานอีกครั้ง ข้อมูลที่บันทึกไว้ยังอยู่ครบ">ระงับ</button>
             <?php else: ?>
               <button type="submit" name="status" value="active" class="btn btn-sm"
                       style="color:var(--primary)">เปิดใช้งาน</button>

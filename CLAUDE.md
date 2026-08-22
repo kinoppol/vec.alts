@@ -22,6 +22,7 @@ Everything operational is done through the browser:
 | Task | Where |
 | --- | --- |
 | First install / re-install / reset admin password / seed demo data | `install.php` |
+| Create or delete demo data on a running installation | `index.php?r=centraladmin/settings` |
 | Apply or roll back migrations | `index.php?r=admin/migrations` (centraladmin only), or install.php's admin tools |
 | Inspect the PHP/MySQL versions actually in use | `index.php?r=centraladmin/settings` |
 
@@ -169,6 +170,25 @@ spell out UTF-8 too.
 `survey_year`, unique on `(alumni_id, survey_year)` — that is what makes year-on-year
 comparison a plain `GROUP BY` rather than a history walk. Drafts are `is_draft = 1`
 with a null `submitted_at`.
+
+### Demo data
+
+`app/Seeder.php` builds sample data two ways. `run()` is the installer's path,
+for a database with nothing in it yet. `seedDemo()` / `purgeDemo()` are the pair
+behind the settings screen and are safe to use on a populated database, because
+everything they create sits in a namespace that can be deleted again exactly:
+
+- Institutions are recorded in the `demo_school_ids` setting **and** carry a code
+  beginning `DEMO-`. `demoSchoolIds()` returns only ids that satisfy both, so an
+  edited setting cannot aim the purge at a real institution.
+- Staff who belong to no institution — the sample central admin — are matched by
+  the `demo.invalid` address instead (a TLD RFC 2606 reserves).
+- Every statement in `purgeDemo()` is scoped to those ids or that domain. Do not
+  add an unscoped `DELETE` to it.
+
+The account password is generated per run and shown once; nothing is baked into
+the source. Above `REAL_DATA_THRESHOLD` graduates outside the namespace, the
+screen makes the administrator type a confirmation before seeding.
 
 ## Domain conventions
 

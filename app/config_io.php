@@ -47,7 +47,7 @@ function vec_normalise_config($config)
             'user' => 'root', 'pass' => '', 'socket' => '', 'prefix' => 'va_',
         ),
         'app' => array(
-            'name' => 'ระบบติดตามศิษย์เก่า', 'timezone' => 'Asia/Bangkok',
+            'name' => 'ระบบติดตามผู้สำเร็จการศึกษา', 'timezone' => 'Asia/Bangkok',
             'env' => 'production', 'debug' => false,
         ),
         'session' => array('name' => 'VECALTS', 'lifetime' => 7200, 'secure' => false),

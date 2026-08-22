@@ -41,7 +41,10 @@
             <?php echo csrf_field(); ?>
             <input type="hidden" name="id" value="<?php echo e($request['id']); ?>">
             <button type="submit" name="status" value="suspended" class="btn btn-block btn-danger"
-                    data-confirm="ปฏิเสธคำขอนี้?">ปฏิเสธคำขอ</button>
+                    data-confirm-title="ปฏิเสธคำขอสมัครนี้?"
+                    data-confirm-ok="ปฏิเสธคำขอ"
+                    data-confirm-danger
+                    data-confirm="<?php echo e($request['name']); ?>&#10;สถานศึกษานี้จะไม่ได้รับสิทธิ์เข้าใช้งานระบบ">ปฏิเสธคำขอ</button>
           </form>
         </div>
       </div>

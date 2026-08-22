@@ -388,7 +388,7 @@ function role_label($role)
 {
     $roles = staff_roles();
     if ($role === 'alumni') {
-        return 'ศิษย์เก่า';
+        return 'ผู้สำเร็จการศึกษา';
     }
     if ($role === 'student') {
         return 'ศิษย์ปัจจุบัน';
@@ -434,7 +434,7 @@ function app_menu($role)
         case 'schooladmin':
             $menu = array(
                 array('route' => 'schooladmin', 'label' => 'ผู้ใช้งาน'),
-                array('route' => 'schooladmin/alumni', 'label' => 'ข้อมูลศิษย์เก่า'),
+                array('route' => 'schooladmin/alumni', 'label' => 'ข้อมูลผู้สำเร็จการศึกษา'),
                 array('route' => 'schooladmin/import', 'label' => 'นำเข้าข้อมูล'),
                 array('route' => 'schooladmin/departments', 'label' => 'จัดการสาขา'),
             );

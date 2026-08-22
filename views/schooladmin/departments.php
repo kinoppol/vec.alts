@@ -7,7 +7,7 @@
 $cols = 'grid-template-columns:2fr 1fr 1fr';
 ?>
 <h1 class="page-title">จัดการสาขา</h1>
-<p class="page-sub">สาขาวิชาที่เปิดสอน ใช้จัดกลุ่มศิษย์เก่าและแยกรายงานตามแผนก</p>
+<p class="page-sub">สาขาวิชาที่เปิดสอน ใช้จัดกลุ่มผู้สำเร็จการศึกษาและแยกรายงานตามแผนก</p>
 
 <div class="card" style="max-width:720px;margin-bottom:22px">
   <form method="post" action="<?php echo e(url('schooladmin/departments')); ?>"
@@ -27,7 +27,7 @@ $cols = 'grid-template-columns:2fr 1fr 1fr';
 
 <div class="table" style="max-width:720px">
   <div class="table-head" style="<?php echo $cols; ?>">
-    <span>สาขาวิชา</span><span>รหัส</span><span>ศิษย์เก่า</span>
+    <span>สาขาวิชา</span><span>รหัส</span><span>จำนวน</span>
   </div>
   <?php if (!$departments): ?>
     <div class="table-empty">ยังไม่มีสาขาวิชา — เพิ่มรายการแรกได้จากฟอร์มด้านบน</div>

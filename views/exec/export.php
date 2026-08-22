@@ -34,7 +34,7 @@
       <label class="label" for="scope">ขอบเขตข้อมูล</label>
       <select class="input" id="scope" name="scope">
         <option value="answered">เฉพาะผู้ที่ตอบแบบสำรวจแล้ว</option>
-        <option value="all">ศิษย์เก่าทั้งหมด (รวมผู้ที่ยังไม่ตอบ)</option>
+        <option value="all">ผู้สำเร็จการศึกษาทั้งหมด (รวมผู้ที่ยังไม่ตอบ)</option>
       </select>
     </div>
 

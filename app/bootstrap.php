@@ -9,7 +9,7 @@
 
 define('VEC_ROOT', dirname(__DIR__));
 define('VEC_APP', VEC_ROOT . '/app');
-define('VEC_VERSION', '1.2.1');
+define('VEC_VERSION', '1.2.2');
 
 // Report everything internally; whether it reaches the browser is decided
 // once the config is loaded. E_STRICT folds into E_ALL from PHP 5.4 onwards.
@@ -28,6 +28,7 @@ require VEC_APP . '/View.php';
 require VEC_APP . '/Repository.php';
 require VEC_APP . '/Http.php';
 require VEC_APP . '/RmsImporter.php';
+require VEC_APP . '/Seeder.php';
 
 // Before any output, including the redirect below and the fatal-error pages.
 vec_send_charset();

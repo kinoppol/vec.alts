@@ -91,7 +91,9 @@ unset($assignableRoles['centraladmin']);
                 <?php endforeach; ?>
               </select>
               <button type="submit" class="btn btn-sm"
-                      data-confirm="เปลี่ยนสิทธิ์ของ <?php echo e($user['full_name']); ?>?">บันทึก</button>
+                      data-confirm-title="เปลี่ยนสิทธิ์ผู้ใช้งาน?"
+                      data-confirm-ok="เปลี่ยนสิทธิ์"
+                      data-confirm="<?php echo e($user['full_name']); ?>&#10;สิทธิ์ใหม่จะมีผลเมื่อผู้ใช้รายนี้เข้าสู่ระบบครั้งถัดไป">บันทึก</button>
             </form>
           <?php endif; ?>
         </span>
@@ -132,7 +134,9 @@ unset($assignableRoles['centraladmin']);
               <?php echo csrf_field(); ?>
               <input type="hidden" name="id" value="<?php echo e($user['id']); ?>">
               <button type="submit" class="btn btn-sm" style="color:var(--primary)"
-                      data-confirm="เข้าใช้งานระบบในนาม <?php echo e($user['full_name']); ?>? การกระทำทั้งหมดจะถูกบันทึกในชื่อผู้ใช้รายนี้">
+                      data-confirm-title="สวมสิทธิ์ผู้ใช้งานรายนี้?"
+                      data-confirm-ok="สวมสิทธิ์"
+                      data-confirm="<?php echo e($user['full_name']); ?>&#10;การกระทำทั้งหมดระหว่างนี้จะถูกบันทึกในชื่อผู้ใช้รายนี้">
                 สวมสิทธิ์
               </button>
             </form>

@@ -24,13 +24,24 @@ $steps = array(
 );
 $stepOrder = array_keys($steps);
 $currentIndex = array_search($step, $stepOrder, true);
+
+/*
+ * The installer cannot read the site_title setting the rest of the interface
+ * uses — on a first run there is no database to read it from — so it shows the
+ * configured application name instead. Those two are kept in step: install.php
+ * writes the name typed on the database step into the setting as well.
+ */
+$appName = trim((string) arr(arr($config, 'app', array()), 'name', ''));
+if ($appName === '') {
+    $appName = 'ระบบติดตามผู้สำเร็จการศึกษา';
+}
 ?><!doctype html>
 <html lang="th">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
-<title>ติดตั้งระบบติดตามศิษย์เก่า</title>
+<title>ติดตั้ง<?php echo e($appName); ?></title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
@@ -99,6 +110,20 @@ dl.kv dt{color:var(--text-dim)}
 dl.kv dd{font-weight:600}
 code{background:var(--surface-2);padding:2px 6px;border-radius:5px;font-size:12px}
 .danger-zone{border-color:var(--danger)}
+/* Confirmation dialog. Repeated here rather than shared with the application
+   stylesheet because the installer runs before the app is usable and loads no
+   assets of its own. */
+.modal-overlay{position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;
+  padding:24px;background:rgba(15,14,26,.55);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+.modal-box{background:var(--surface);border:1px solid var(--border);border-radius:20px;
+  padding:30px 32px 26px;max-width:460px;width:100%;box-shadow:0 30px 60px -20px rgba(0,0,0,.45)}
+.modal-icon{width:52px;height:52px;border-radius:15px;display:flex;align-items:center;justify-content:center;
+  font-size:24px;margin-bottom:16px;background:rgba(220,38,38,.12);color:var(--danger)}
+.modal-title{font-size:18px;font-weight:700;margin-bottom:8px}
+.modal-text{font-size:14px;line-height:1.75;color:var(--text-dim);white-space:pre-line;overflow-wrap:break-word}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:24px;flex-wrap:wrap}
+.modal-actions .btn{min-width:108px}
+@media (max-width:480px){.modal-actions{flex-direction:column-reverse}.modal-actions .btn{width:100%}}
 @media (max-width:640px){.grid2{grid-template-columns:1fr}body{padding:24px 14px}}
 </style>
 </head>
@@ -108,7 +133,7 @@ code{background:var(--surface-2);padding:2px 6px;border-radius:5px;font-size:12p
   <div class="head">
     <div class="logo">ศ</div>
     <div>
-      <h1>ติดตั้งระบบติดตามศิษย์เก่า</h1>
+      <h1>ติดตั้ง<?php echo e($appName); ?></h1>
       <div class="sub">
         PHP <?php echo e(PHP_VERSION); ?>
         <?php if ($isInstalled): ?> · ติดตั้งแล้ว<?php endif; ?>
@@ -421,7 +446,9 @@ code{background:var(--surface-2);padding:2px 6px;border-radius:5px;font-size:12p
           </button>
         </form>
         <form method="post" action="<?php echo e(install_url()); ?>"
-              onsubmit="return confirm('ย้อนกลับ migration ชุดล่าสุด? ข้อมูลในตารางหรือคอลัมน์ที่ถูกลบจะหายไป');">
+              data-confirm-title="ย้อนกลับ migration ชุดล่าสุด?"
+              data-confirm-ok="ย้อนกลับ"
+              data-confirm="ข้อมูลในตารางหรือคอลัมน์ที่ถูกลบจะหายไป">
           <?php echo csrf_field(); ?>
           <input type="hidden" name="action" value="maintenance">
           <button type="submit" name="task" value="rollback" class="btn">ย้อนกลับชุดล่าสุด</button>
@@ -453,7 +480,7 @@ code{background:var(--surface-2);padding:2px 6px;border-radius:5px;font-size:12p
 
       <h3 style="margin-top:28px">ข้อมูลตัวอย่าง</h3>
       <p class="muted" style="margin-bottom:12px">
-        สร้างสถานศึกษา ศิษย์เก่า และคำตอบแบบสำรวจชุดตัวอย่าง เพื่อทดลองใช้งานทุกหน้าจอ
+        สร้างสถานศึกษา ผู้สำเร็จการศึกษา และคำตอบแบบสำรวจชุดตัวอย่าง เพื่อทดลองใช้งานทุกหน้าจอ
         เหมาะกับเครื่องทดสอบ ไม่ควรใช้บนเครื่องให้บริการจริง
       </p>
       <form method="post" action="<?php echo e(install_url()); ?>">
@@ -494,7 +521,9 @@ code{background:var(--surface-2);padding:2px 6px;border-radius:5px;font-size:12p
         พิมพ์คำว่า <code>REINSTALL</code> เพื่อยืนยัน
       </p>
       <form method="post" action="<?php echo e(install_url()); ?>"
-            onsubmit="return confirm('ยืนยันลบข้อมูลทั้งหมดและติดตั้งใหม่?');">
+            data-confirm-title="ลบข้อมูลทั้งหมดและติดตั้งใหม่?"
+            data-confirm-ok="ลบและติดตั้งใหม่"
+            data-confirm="ตารางทั้งหมดจะถูกลบแล้วสร้างใหม่&#10;ข้อมูลทุกอย่างจะหายถาวร รวมถึงบัญชีผู้ใช้และคำตอบแบบสำรวจ">
         <?php echo csrf_field(); ?>
         <input type="hidden" name="action" value="maintenance">
         <input type="hidden" name="task" value="reinstall">
@@ -514,5 +543,144 @@ code{background:var(--surface-2);padding:2px 6px;border-radius:5px;font-size:12p
   </p>
 
 </div>
+
+<script>
+/*
+ * Confirmation dialog for the destructive maintenance forms.
+ *
+ * Stands alone: the installer loads none of the application's assets, because
+ * it has to work before the application is installed at all. Without
+ * JavaScript the forms simply submit, which is the same behaviour an inline
+ * onsubmit="return confirm(...)" had.
+ */
+(function () {
+    'use strict';
+
+    var forms = document.querySelectorAll('form[data-confirm]');
+    if (!forms.length) {
+        return;
+    }
+
+    function ask(form) {
+        var previousFocus = document.activeElement;
+
+        var overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+
+        var box = document.createElement('div');
+        box.className = 'modal-box';
+        box.setAttribute('role', 'dialog');
+        box.setAttribute('aria-modal', 'true');
+
+        var icon = document.createElement('div');
+        icon.className = 'modal-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        icon.textContent = '⚠️';
+        box.appendChild(icon);
+
+        var title = document.createElement('div');
+        title.className = 'modal-title';
+        title.id = 'install-modal-title';
+        title.textContent = form.getAttribute('data-confirm-title') || 'ยืนยันการทำรายการ';
+        box.appendChild(title);
+        box.setAttribute('aria-labelledby', 'install-modal-title');
+
+        var text = document.createElement('div');
+        text.className = 'modal-text';
+        text.textContent = form.getAttribute('data-confirm');
+        box.appendChild(text);
+
+        var actions = document.createElement('div');
+        actions.className = 'modal-actions';
+
+        var cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.className = 'btn';
+        cancel.textContent = 'ยกเลิก';
+
+        var ok = document.createElement('button');
+        ok.type = 'button';
+        ok.className = 'btn btn-danger';
+        ok.textContent = form.getAttribute('data-confirm-ok') || 'ยืนยัน';
+
+        actions.appendChild(cancel);
+        actions.appendChild(ok);
+        box.appendChild(actions);
+        overlay.appendChild(box);
+
+        var closed = false;
+        function close() {
+            if (closed) {
+                return;
+            }
+            closed = true;
+            document.removeEventListener('keydown', onKey, true);
+            if (overlay.parentNode) {
+                overlay.parentNode.removeChild(overlay);
+            }
+            if (previousFocus && previousFocus.focus) {
+                previousFocus.focus();
+            }
+        }
+
+        function onKey(ev) {
+            if (ev.key === 'Escape' || ev.keyCode === 27) {
+                ev.preventDefault();
+                close();
+                return;
+            }
+            if (ev.key === 'Tab' || ev.keyCode === 9) {
+                var first = ev.shiftKey ? ok : cancel;
+                var next = ev.shiftKey ? cancel : ok;
+                if (document.activeElement === first) {
+                    ev.preventDefault();
+                    next.focus();
+                }
+            }
+        }
+
+        cancel.addEventListener('click', close);
+        ok.addEventListener('click', function () {
+            close();
+            // The submitting button carries name and value the handler reads,
+            // so replay its click rather than calling form.submit().
+            form.vecConfirmed = true;
+            if (form.vecSubmitter) {
+                form.vecSubmitter.click();
+            } else {
+                form.submit();
+            }
+        });
+        overlay.addEventListener('mousedown', function (ev) {
+            if (ev.target === overlay) {
+                close();
+            }
+        });
+        document.addEventListener('keydown', onKey, true);
+
+        document.body.appendChild(overlay);
+        ok.focus();
+    }
+
+    for (var i = 0; i < forms.length; i++) {
+        (function (form) {
+            var buttons = form.querySelectorAll('button[type="submit"], input[type="submit"]');
+            for (var b = 0; b < buttons.length; b++) {
+                buttons[b].addEventListener('click', function () {
+                    form.vecSubmitter = this;
+                });
+            }
+            form.addEventListener('submit', function (ev) {
+                if (form.vecConfirmed) {
+                    form.vecConfirmed = false;
+                    return;
+                }
+                ev.preventDefault();
+                ask(form);
+            });
+        }(forms[i]));
+    }
+}());
+</script>
 </body>
 </html>

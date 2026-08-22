@@ -20,7 +20,7 @@ $donutStop = min(100, $employedPct + $studyPct);
   <div>
     <h1 class="page-title">แดชบอร์ดผู้บริหาร</h1>
     <p class="page-sub">
-      ภาพรวมภาวะการมีงานทำของศิษย์เก่า · <?php echo e($school['name']); ?> · ปีสำรวจ <?php echo e($year); ?>
+      ภาพรวมภาวะการมีงานทำของผู้สำเร็จการศึกษา · <?php echo e($school['name']); ?> · ปีสำรวจ <?php echo e($year); ?>
     </p>
   </div>
   <form method="get" action="<?php echo e(url()); ?>" style="display:flex;gap:8px;align-items:center">
@@ -39,7 +39,7 @@ $donutStop = min(100, $employedPct + $studyPct);
 
 <div class="grid-4" style="margin-bottom:20px">
   <div class="card card-sm">
-    <div class="kpi-label">ศิษย์เก่าทั้งหมด</div>
+    <div class="kpi-label">ผู้สำเร็จการศึกษาทั้งหมด</div>
     <div class="kpi-value"><?php echo e(num($total)); ?></div>
     <div class="kpi-sub"><?php echo $gradYear > 0 ? 'ปีการศึกษา ' . e($gradYear) : 'ทุกปีการศึกษา'; ?></div>
   </div>

@@ -320,12 +320,9 @@
             errorList.textContent += list.join('\n') + '\n';
         }
 
+        // The button carries data-confirm; initConfirms() asks and only lets
+        // the click through once it has been accepted.
         startBtn.addEventListener('click', function () {
-            var confirmText = startBtn.getAttribute('data-confirm');
-            if (confirmText && !window.confirm(confirmText)) {
-                return;
-            }
-
             startBtn.disabled = true;
             startBtn.textContent = 'กำลังโอนข้อมูล…';
             panel.hidden = false;
@@ -431,12 +428,9 @@
             }
         }
 
+        // Confirmation is handled centrally by initConfirms(), from the
+        // button's own data-confirm attribute.
         btn.addEventListener('click', function () {
-            var confirmText = btn.getAttribute('data-confirm');
-            if (confirmText && !window.confirm(confirmText)) {
-                return;
-            }
-
             btn.disabled = true;
             btn.textContent = 'กำลังโอนกลุ่มเรียน…';
             panel.hidden = false;
@@ -495,16 +489,195 @@
         });
     }
 
-    /* Confirmation prompts for destructive buttons. */
-    function initConfirms() {
-        var nodes = document.querySelectorAll('[data-confirm]');
-        for (var i = 0; i < nodes.length; i++) {
-            nodes[i].addEventListener('click', function (ev) {
-                if (!window.confirm(this.getAttribute('data-confirm'))) {
-                    ev.preventDefault();
-                }
-            });
+    /*
+     * Confirmation dialog, in place of window.confirm().
+     *
+     * window.confirm() blocks until it returns, which is what made it easy to
+     * use; this one cannot, so the work to be done is handed in as a callback
+     * and runs only once the dialog is accepted.
+     *
+     * @param {Object} opts  title, text, okLabel, cancelLabel, danger
+     * @param {Function} onAccept
+     */
+    function showConfirm(opts, onAccept) {
+        var previousFocus = document.activeElement;
+
+        var overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+
+        var box = document.createElement('div');
+        box.className = 'modal-box' + (opts.danger ? ' is-danger' : '');
+        box.setAttribute('role', 'dialog');
+        box.setAttribute('aria-modal', 'true');
+
+        var icon = document.createElement('div');
+        icon.className = 'modal-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        icon.textContent = opts.danger ? '⚠️' : '❓';
+        box.appendChild(icon);
+
+        var titleId = 'modal-title-' + Date.now();
+        var title = document.createElement('div');
+        title.className = 'modal-title';
+        title.id = titleId;
+        title.textContent = opts.title || 'ยืนยันการทำรายการ';
+        box.appendChild(title);
+        box.setAttribute('aria-labelledby', titleId);
+
+        if (opts.text) {
+            var textId = 'modal-text-' + Date.now();
+            var text = document.createElement('div');
+            text.className = 'modal-text';
+            text.id = textId;
+            // textContent, not innerHTML: the message can carry a person's
+            // name straight from the database.
+            text.textContent = opts.text;
+            box.appendChild(text);
+            box.setAttribute('aria-describedby', textId);
         }
+
+        var actions = document.createElement('div');
+        actions.className = 'modal-actions';
+
+        var cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.className = 'btn';
+        cancel.textContent = opts.cancelLabel || 'ยกเลิก';
+
+        var ok = document.createElement('button');
+        ok.type = 'button';
+        ok.className = 'btn ' + (opts.danger ? 'btn-danger' : 'btn-primary');
+        ok.textContent = opts.okLabel || 'ยืนยัน';
+
+        actions.appendChild(cancel);
+        actions.appendChild(ok);
+        box.appendChild(actions);
+        overlay.appendChild(box);
+
+        var closed = false;
+        function close() {
+            if (closed) {
+                return;
+            }
+            closed = true;
+            document.removeEventListener('keydown', onKey, true);
+            if (overlay.parentNode) {
+                overlay.parentNode.removeChild(overlay);
+            }
+            // Put the caret back where the reader left it.
+            if (previousFocus && previousFocus.focus) {
+                previousFocus.focus();
+            }
+        }
+
+        function onKey(ev) {
+            if (ev.key === 'Escape' || ev.keyCode === 27) {
+                ev.preventDefault();
+                close();
+                return;
+            }
+            // Keep Tab inside the dialog: there are only two stops.
+            if (ev.key === 'Tab' || ev.keyCode === 9) {
+                var first = ev.shiftKey ? ok : cancel;
+                var next = ev.shiftKey ? cancel : ok;
+                if (document.activeElement === first) {
+                    ev.preventDefault();
+                    next.focus();
+                }
+            }
+        }
+
+        cancel.addEventListener('click', close);
+        ok.addEventListener('click', function () {
+            close();
+            onAccept();
+        });
+        overlay.addEventListener('mousedown', function (ev) {
+            // Only a press that starts on the backdrop itself dismisses, so a
+            // drag that ends outside the box does not.
+            if (ev.target === overlay) {
+                close();
+            }
+        });
+        document.addEventListener('keydown', onKey, true);
+
+        document.body.appendChild(overlay);
+        ok.focus();
+    }
+
+    /*
+     * Nearest control whose click actually does something — the button or link
+     * that was pressed, starting from whatever inner element the press landed
+     * on. Returns null when the press was not on a control.
+     */
+    function activatable(node) {
+        var tags = { BUTTON: 1, A: 1, INPUT: 1 };
+        while (node && node !== document) {
+            if (node.nodeType === 1 && tags[node.tagName]) {
+                return node;
+            }
+            node = node.parentNode;
+        }
+        return null;
+    }
+
+    /* Nearest ancestor carrying the attribute, including the node itself. */
+    function closestWithAttr(node, attr) {
+        while (node && node !== document) {
+            if (node.nodeType === 1 && node.hasAttribute(attr)) {
+                return node;
+            }
+            node = node.parentNode;
+        }
+        return null;
+    }
+
+    /*
+     * Confirmation prompts for destructive controls.
+     *
+     * Bound on document in the capture phase, so it runs before any handler
+     * attached to the control itself and can stop it outright — the chunked
+     * transfer buttons below are ordinary buttons whose own click handlers
+     * would otherwise start the work regardless of the answer.
+     *
+     * Accepting re-issues the click with a flag set, which lets the event
+     * through untouched the second time. Replaying the real click rather than
+     * calling form.submit() keeps the submitting button's own name and value
+     * in the request, and still fires the submit event the busy overlay
+     * listens for.
+     *
+     * The click is replayed on the control that was pressed, not on the
+     * element holding the attribute: the two differ when data-confirm sits on
+     * a form or on a wrapper, and calling click() on a form does nothing at
+     * all — the button would simply stop working.
+     */
+    function initConfirms() {
+        document.addEventListener('click', function (ev) {
+            var el = closestWithAttr(ev.target, 'data-confirm');
+            if (!el) {
+                return;
+            }
+            if (el.vecConfirmed) {
+                el.vecConfirmed = false;
+                return;
+            }
+
+            var action = activatable(ev.target) || el;
+
+            ev.preventDefault();
+            ev.stopImmediatePropagation();
+
+            showConfirm({
+                title: el.getAttribute('data-confirm-title') || 'ยืนยันการทำรายการ',
+                text: el.getAttribute('data-confirm'),
+                okLabel: el.getAttribute('data-confirm-ok') || 'ยืนยัน',
+                cancelLabel: el.getAttribute('data-confirm-cancel') || 'ยกเลิก',
+                danger: el.hasAttribute('data-confirm-danger')
+            }, function () {
+                el.vecConfirmed = true;
+                action.click();
+            });
+        }, true);
     }
 
     /* Auto-submit filter selects. */
