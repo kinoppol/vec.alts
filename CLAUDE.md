@@ -99,8 +99,8 @@ exists; both forms land in the same place via `PATH_INFO`. **Always build links 
   so `$this->partial('layout/flash')` works.
 - **`app/Auth.php`** — session auth for two account kinds: staff (`users` table,
   email + password) and alumni (`alumni` table, student code + national ID, the ID
-  stored only as a bcrypt hash). Roles: `alumni`, `advisor`, `exec`, `schooladmin`,
-  `centraladmin`.
+  stored only as a bcrypt hash). Roles: `student`, `alumni`, `advisor`, `exec`,
+  `schooladmin`, `centraladmin`.
 
 ### Per-request obligations
 
