@@ -337,6 +337,27 @@ textarea.input { min-height: 80px; resize: vertical; }
 }
 .auth-change:hover { color: var(--primary); }
 
+/* Page tabs: server-rendered links, one per section of a long screen. */
+.tabs {
+  display: flex; gap: 4px; flex-wrap: wrap;
+  border-bottom: 1px solid var(--border); margin-bottom: 22px;
+}
+.tab {
+  position: relative; padding: 10px 16px; margin-bottom: -1px;
+  font-size: 14px; font-weight: 600; color: var(--text-dim); text-decoration: none;
+  border-bottom: 2px solid transparent; border-radius: 8px 8px 0 0;
+}
+.tab:hover { color: var(--text); background: var(--surface-2); }
+.tab.on { color: var(--primary); border-bottom-color: var(--primary); }
+.tab-dot {
+  display: inline-block; width: 7px; height: 7px; margin-left: 6px; vertical-align: middle;
+  border-radius: 50%; background: var(--warn, #d97706);
+}
+@media (max-width: 640px) {
+  .tabs { flex-wrap: nowrap; overflow-x: auto; }
+  .tab { white-space: nowrap; }
+}
+
 /* Named "kind" rather than "choice": the survey form further down already owns
    .choice for its radio cards, and two components sharing a class silently
    leak each other's padding, gaps and hover colours. */

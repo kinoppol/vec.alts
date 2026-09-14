@@ -91,7 +91,7 @@ $cols = 'grid-template-columns:1.4fr 1fr 1.2fr .8fr';
 
   <?php if ($total > 0): ?>
     <form class="table-toolbar" method="post" action="<?php echo e(url('access-codes/issue')); ?>"
-          style="border-top:1px solid var(--line)">
+          style="border-top:1px solid var(--border)">
       <?php echo csrf_field(); ?>
       <input type="hidden" name="scope" value="filtered">
       <input type="hidden" name="q" value="<?php echo e($filters['search']); ?>">

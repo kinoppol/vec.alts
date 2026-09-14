@@ -527,60 +527,76 @@ class CentralAdminController extends Controller
         if (is_post()) {
             csrf_verify();
 
-            $title = post('site_title');
-            if ($title !== '') {
-                $this->repo->setSetting('site_title', $title);
-            }
+            // Each tab posts only its own fields. Saving by section keeps a
+            // checkbox on another tab — absent from this form, so it would
+            // read as unticked — from being switched off as a side effect.
+            $section = post('section');
 
-            $year = post_int('survey_year', 0);
-            if ($year >= 2500 && $year <= 2700) {
-                $this->repo->setSetting('survey_year', $year);
-            } else {
-                flash('warn', 'ปีสำรวจต้องอยู่ระหว่าง 2500 ถึง 2700 — ไม่ได้บันทึกค่านี้');
-            }
-
-            $this->repo->setSetting('allow_self_update', post('allow_self_update') === '1' ? '1' : '0');
-            $this->repo->setSetting('allow_school_register', post('allow_school_register') === '1' ? '1' : '0');
-
-            $codeRequired = post('alumni_access_code_required') === '1' ? '1' : '0';
-            if ($codeRequired !== $this->repo->setting('alumni_access_code_required', '0')) {
-                // Worth its own entry: switching it off reopens sign-in with a
-                // national ID alone.
-                $this->repo->audit('settings.access_code', 'system',
-                    $codeRequired === '1' ? 'บังคับใช้รหัสเข้าใช้ครั้งแรก' : 'ยกเลิกการบังคับใช้รหัสเข้าใช้ครั้งแรก',
-                    $this->actor());
-            }
-            $this->repo->setSetting('alumni_access_code_required', $codeRequired);
-
-            // Kept apart from the other switches in the interface because
-            // leaving it on exposes database and path detail to whoever
-            // triggers an error, including the public.
-            $this->repo->setSetting('app_debug', post('app_debug') === '1' ? '1' : '0');
-
-            // Only the origin is stored; the endpoint path lives in
-            // RmsImporter::API_PATH so the integration cannot be repointed at
-            // an arbitrary script from the settings screen.
-            $baseUrl = rtrim(post('rms_base_url'), '/');
-            if ($baseUrl === '') {
-                $this->repo->setSetting('rms_base_url', '');
-            } else {
-                $urlError = Http::validateUrl($baseUrl);
-                if ($urlError !== '') {
-                    flash('warn', 'ที่อยู่ระบบ RMS ไม่ถูกต้อง (' . $urlError . ') — ไม่ได้บันทึกค่านี้');
-                } else {
-                    $this->repo->setSetting('rms_base_url', $baseUrl);
+            if ($section === 'general') {
+                $title = post('site_title');
+                if ($title !== '') {
+                    $this->repo->setSetting('site_title', $title);
                 }
+
+                $year = post_int('survey_year', 0);
+                if ($year >= 2500 && $year <= 2700) {
+                    $this->repo->setSetting('survey_year', $year);
+                } else {
+                    flash('warn', 'ปีสำรวจต้องอยู่ระหว่าง 2500 ถึง 2700 — ไม่ได้บันทึกค่านี้');
+                }
+
+                $this->repo->setSetting('allow_self_update', post('allow_self_update') === '1' ? '1' : '0');
+                $this->repo->setSetting('allow_school_register', post('allow_school_register') === '1' ? '1' : '0');
+            } elseif ($section === 'security') {
+                $codeRequired = post('alumni_access_code_required') === '1' ? '1' : '0';
+                if ($codeRequired !== $this->repo->setting('alumni_access_code_required', '0')) {
+                    // Worth its own entry: switching it off reopens sign-in with a
+                    // national ID alone.
+                    $this->repo->audit('settings.access_code', 'system',
+                        $codeRequired === '1' ? 'บังคับใช้รหัสเข้าใช้ครั้งแรก' : 'ยกเลิกการบังคับใช้รหัสเข้าใช้ครั้งแรก',
+                        $this->actor());
+                }
+                $this->repo->setSetting('alumni_access_code_required', $codeRequired);
+            } elseif ($section === 'rms') {
+                // Only the origin is stored; the endpoint path lives in
+                // RmsImporter::API_PATH so the integration cannot be repointed at
+                // an arbitrary script from the settings screen.
+                $baseUrl = rtrim(post('rms_base_url'), '/');
+                if ($baseUrl === '') {
+                    $this->repo->setSetting('rms_base_url', '');
+                } else {
+                    $urlError = Http::validateUrl($baseUrl);
+                    if ($urlError !== '') {
+                        flash('warn', 'ที่อยู่ระบบ RMS ไม่ถูกต้อง (' . $urlError . ') — ไม่ได้บันทึกค่านี้');
+                    } else {
+                        $this->repo->setSetting('rms_base_url', $baseUrl);
+                    }
+                }
+            } elseif ($section === 'system') {
+                // Kept on the technical tab, away from everyday switches,
+                // because leaving it on exposes database and path detail to
+                // whoever triggers an error, including the public.
+                $this->repo->setSetting('app_debug', post('app_debug') === '1' ? '1' : '0');
+            } else {
+                flash('error', 'ไม่พบหมวดการตั้งค่าที่ต้องการบันทึก');
+                redirect(url('centraladmin/settings'));
             }
 
-            $this->repo->audit('settings.update', 'system', null, $this->actor());
+            $this->repo->audit('settings.update', 'system', $section, $this->actor());
             flash('success', 'บันทึกการตั้งค่าเรียบร้อยแล้ว');
-            redirect('centraladmin/settings');
+            redirect(url('centraladmin/settings', array('tab' => $section)));
         }
 
         $seeder = new Seeder($this->repo);
 
+        // The seeding result carries a one-time password, so land on the tab
+        // that shows it whatever the address says.
+        $demoResult = $this->takeDemoResult();
+        $tab = $demoResult !== null ? 'demo' : query('tab', 'general');
+
         $this->render('centraladmin/settings', array(
             'title'    => 'ตั้งค่าระบบ',
+            'tab'      => $tab,
             'settings' => array(
                 'site_title'        => $this->repo->setting('site_title', 'ระบบติดตามข้อมูลนักศึกษา'),
                 'survey_year'       => $this->repo->surveyYear(),
@@ -596,7 +612,7 @@ class CentralAdminController extends Controller
             'demo'     => $seeder->demoSummary(),
             'demoScale' => $seeder->realScale(),
             // Shown once, then dropped: it carries the generated password.
-            'demoResult' => $this->takeDemoResult(),
+            'demoResult' => $demoResult,
         ));
     }
 
@@ -613,7 +629,7 @@ class CentralAdminController extends Controller
         $this->auth->require_role('centraladmin');
 
         if (!is_post()) {
-            redirect('centraladmin/settings');
+            redirect(url('centraladmin/settings', array('tab' => 'demo')));
         }
         csrf_verify();
 
@@ -626,12 +642,12 @@ class CentralAdminController extends Controller
             $result = $seeder->purgeDemo($this->auth->id());
             flash($result['ok'] ? 'success' : 'info', $result['message']);
             $this->repo->audit('demo.purge', 'system', $result['message'], $this->actor());
-            redirect('centraladmin/settings');
+            redirect(url('centraladmin/settings', array('tab' => 'demo')));
         }
 
         if ($task !== 'seed') {
             flash('error', 'คำสั่งไม่ถูกต้อง');
-            redirect('centraladmin/settings');
+            redirect(url('centraladmin/settings', array('tab' => 'demo')));
         }
 
         // On an installation that already holds real graduates, one click is
@@ -641,7 +657,7 @@ class CentralAdminController extends Controller
             flash('error', 'ฐานข้อมูลนี้มีข้อมูลจริงอยู่แล้ว ('
                 . number_format($scale['alumni']) . ' คน)'
                 . ' — ต้องพิมพ์คำยืนยัน DEMO ก่อนจึงจะสร้างข้อมูลตัวอย่างได้');
-            redirect('centraladmin/settings');
+            redirect(url('centraladmin/settings', array('tab' => 'demo')));
         }
 
         try {
@@ -649,12 +665,12 @@ class CentralAdminController extends Controller
         } catch (PDOException $e) {
             app_log('demo seed failed: ' . $e->getMessage());
             flash('error', 'สร้างข้อมูลตัวอย่างไม่สำเร็จ — ดูรายละเอียดในไฟล์ log');
-            redirect('centraladmin/settings');
+            redirect(url('centraladmin/settings', array('tab' => 'demo')));
         }
 
         if (!$result['ok']) {
             flash('warn', $result['message']);
-            redirect('centraladmin/settings');
+            redirect(url('centraladmin/settings', array('tab' => 'demo')));
         }
 
         $this->repo->audit('demo.seed', 'system', $result['message'], $this->actor());
@@ -663,7 +679,7 @@ class CentralAdminController extends Controller
         // Handed to the next request rather than the query string: the
         // password would otherwise land in the address bar and the log.
         $_SESSION['_demo_result'] = $result;
-        redirect('centraladmin/settings');
+        redirect(url('centraladmin/settings', array('tab' => 'demo')));
     }
 
     /**
