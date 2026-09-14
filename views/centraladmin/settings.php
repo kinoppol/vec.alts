@@ -41,6 +41,26 @@
 
     <div class="field">
       <label class="label">
+        <input type="checkbox" name="alumni_access_code_required" value="1"
+               aria-label="บังคับใช้รหัสเข้าใช้ครั้งแรกสำหรับผู้เรียน"
+               <?php echo arr($settings, 'alumni_access_code_required', '0') === '1' ? 'checked' : ''; ?>>
+        บังคับใช้รหัสเข้าใช้ครั้งแรกจากครู (แนะนำ)
+      </label>
+      <div class="hint">
+        เมื่อเปิด ผู้เรียนที่ยังไม่ได้ตั้งรหัสผ่านต้องใช้เลขบัตรประชาชนคู่กับรหัสจากครู
+        จึงจะเข้าระบบได้ ป้องกันการใช้เลขบัตรที่รั่วไหลเข้าบัญชีของผู้อื่น ·
+        ถ้าปิด (ช่วงเปลี่ยนผ่าน) ผู้ที่ยังไม่ตั้งรหัสผ่านใช้เลขบัตรประชาชนเข้าระบบได้ตามเดิม
+        <?php $access = arr($settings, 'access_stats', array()); ?>
+        <?php if (!empty($access['total'])): ?>
+          <br>ความคืบหน้า: ตั้งรหัสผ่านแล้ว <?php echo e(num($access['password_set'])); ?>
+          จาก <?php echo e(num($access['total'])); ?> คน
+          · มีรหัสรอใช้งาน <?php echo e(num($access['code_pending'])); ?> คน
+        <?php endif; ?>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="label">
         <input type="checkbox" name="allow_school_register" value="1" aria-label="เปิดให้สถานศึกษาสมัครใช้งานเองผ่านหน้าเว็บ"
                <?php echo arr($settings, 'allow_school_register', '1') === '1' ? 'checked' : ''; ?>>
         เปิดให้สถานศึกษาอื่นสมัครเข้าใช้งานเอง
@@ -138,19 +158,21 @@
         </tbody>
       </table>
       <table class="table">
-        <thead><tr><th>บทบาท</th><th>รหัสนักศึกษา</th><th>เลขบัตรประชาชน (รหัสผ่าน)</th></tr></thead>
+        <thead><tr><th>บทบาท</th><th>รหัสนักศึกษา</th><th>เลขบัตรประชาชน</th><th>รหัสเข้าใช้ครั้งแรก</th></tr></thead>
         <tbody>
         <?php foreach ($demoResult['learners'] as $account): ?>
           <tr>
             <td><?php echo e($account['role']); ?></td>
             <td><code><?php echo e($account['code']); ?></code></td>
             <td><code><?php echo e($account['idcard']); ?></code></td>
+            <td><code><?php echo e(arr($account, 'access', '')); ?></code></td>
           </tr>
         <?php endforeach; ?>
         </tbody>
       </table>
       <p class="hint" style="margin:12px 0 0">
-        ผู้เรียนตัวอย่างคนอื่นใช้รหัสถัดไปเรียงกัน เข้าสู่ระบบผ่านแท็บผู้เรียนด้วยรหัสนักศึกษาและเลขบัตรประชาชน
+        ผู้เรียนตัวอย่างคนอื่นใช้รหัสถัดไปเรียงกัน เข้าใช้ครั้งแรกผ่าน "เข้าใช้ครั้งแรก / ลืมรหัสผ่าน" ด้วยรหัสนักศึกษา เลขบัตรประชาชน
+        และรหัสเข้าใช้ครั้งแรก (ผู้เรียนคนอื่นให้ออกรหัสจากหน้ารายชื่อ)
       </p>
     </div>
   <?php endif; ?>

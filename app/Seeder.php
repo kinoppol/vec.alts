@@ -227,7 +227,8 @@ class Seeder
                 'exec@petchtech.demo (ผู้บริหาร)',
                 'admin@petchtech.demo (ผู้ดูแลสถานศึกษา)',
                 'ทั้งสามบัญชีใช้รหัสผ่านที่คุณกำหนดไว้',
-                'ผู้สำเร็จการศึกษา: รหัส 6231010001 / เลขบัตร 1100000000001',
+                'ผู้สำเร็จการศึกษา: รหัส 6231010001 / เลขบัตร 1100000000001'
+                    . ' / รหัสเข้าใช้ครั้งแรก ' . $this->sampleAccessCode($schoolId, '6231010001'),
             ),
         );
     }
@@ -408,6 +409,11 @@ class Seeder
 
         $this->repo->setSetting('demo_seeded_at', date('Y-m-d H:i:s'));
 
+        // The sample learners get one-time codes, so the demonstration still
+        // works once the central administrator requires them.
+        $counts['student_access'] = $this->sampleAccessCode($schoolId, $counts['student_code']);
+        $counts['graduate_access'] = $this->sampleAccessCode($schoolId, $counts['graduate_code']);
+
         return array(
             'ok'       => true,
             'password' => $password,
@@ -423,11 +429,34 @@ class Seeder
             ),
             'learners' => array(
                 array('role' => 'นักศึกษาปัจจุบัน', 'code' => $counts['student_code'],
-                      'idcard' => $counts['student_idcard']),
+                      'idcard' => $counts['student_idcard'], 'access' => $counts['student_access']),
                 array('role' => 'ผู้สำเร็จการศึกษา', 'code' => $counts['graduate_code'],
-                      'idcard' => $counts['graduate_idcard']),
+                      'idcard' => $counts['graduate_idcard'], 'access' => $counts['graduate_access']),
             ),
         );
+    }
+
+    /**
+     * A one-time code for one sample learner, for the result screen.
+     *
+     * @param int $schoolId
+     * @param string $studentCode
+     * @return string '' when there is no such learner
+     */
+    private function sampleAccessCode($schoolId, $studentCode)
+    {
+        if ($studentCode === '') {
+            return '';
+        }
+        $row = $this->repo->one(
+            'SELECT id FROM `{p}alumni` WHERE school_id = ? AND student_code = ? LIMIT 1',
+            array((int) $schoolId, $studentCode)
+        );
+        if ($row === null) {
+            return '';
+        }
+        $issued = $this->repo->issueAccessCode($row['id']);
+        return $issued['code'];
     }
 
     /**

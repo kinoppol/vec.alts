@@ -411,12 +411,14 @@ function app_menu($role)
         case 'student':
             $menu = array(
                 array('route' => 'student', 'label' => 'ข้อมูลของฉัน'),
+                array('route' => 'account/set-password', 'label' => 'เปลี่ยนรหัสผ่าน'),
             );
             break;
         case 'alumni':
             $menu = array(
                 array('route' => 'alumni', 'label' => 'ข้อมูลของฉัน'),
                 array('route' => 'alumni/history', 'label' => 'ประวัติการอัปเดต'),
+                array('route' => 'account/set-password', 'label' => 'เปลี่ยนรหัสผ่าน'),
             );
             break;
         case 'advisor':

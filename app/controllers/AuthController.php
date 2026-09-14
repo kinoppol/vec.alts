@@ -29,7 +29,13 @@ class AuthController extends Controller
             } elseif ($tab === 'alumni') {
                 $studentCode = post('student_code');
                 $old['student_code'] = $studentCode;
-                $result = $this->auth->loginAlumni($studentCode, post('national_id'));
+                $result = $this->auth->loginAlumni($studentCode, post('password'));
+            } elseif ($tab === 'first') {
+                $studentCode = post('student_code');
+                $old['student_code'] = $studentCode;
+                $result = $this->auth->loginAlumniFirstTime(
+                    $studentCode, post('national_id'), post('access_code')
+                );
             } else {
                 $result = array('ok' => false, 'error' => 'กรุณาเลือกประเภทผู้ใช้งานก่อนเข้าสู่ระบบ');
             }
@@ -43,7 +49,7 @@ class AuthController extends Controller
             flash('error', $result['error']);
         }
 
-        if ($tab !== 'staff' && $tab !== 'alumni') {
+        if (!in_array($tab, array('staff', 'alumni', 'first'), true)) {
             $tab = '';
         }
 
@@ -51,6 +57,7 @@ class AuthController extends Controller
             'title' => $tab === '' ? 'เลือกประเภทผู้ใช้งาน' : 'เข้าสู่ระบบ',
             'tab'   => $tab,
             'old'   => $old,
+            'codeRequired' => $this->auth->accessCodeRequired(),
         ));
     }
 

@@ -98,9 +98,24 @@ exists; both forms land in the same place via `PATH_INFO`. **Always build links 
   production box has no writable cache dir). `$this` inside a template is the View,
   so `$this->partial('layout/flash')` works.
 - **`app/Auth.php`** — session auth for two account kinds: staff (`users` table,
-  email + password) and alumni (`alumni` table, student code + national ID, the ID
-  stored only as a bcrypt hash). Roles: `student`, `alumni`, `advisor`, `exec`,
-  `schooladmin`, `centraladmin`.
+  email + password) and alumni (`alumni` table). Roles: `student`, `alumni`,
+  `advisor`, `exec`, `schooladmin`, `centraladmin`.
+
+### Alumni sign-in and one-time codes
+
+National IDs have leaked from government databases, so the ID alone is not a
+credential. Alumni sign in with student code + a password they chose
+(`Auth::loginAlumni()`). A first use or a forgotten password goes through
+`Auth::loginAlumniFirstTime()`: national ID **plus** a one-time code a teacher
+issued (`AccessCodeController`, `Repository::issueAccessCode()` — 8 chars, bcrypt,
+30 days, printed on slips shown once). That session carries `must_set_password`,
+and `require_role()` sends it to `account/set-password` until a password is set,
+which also retires the code. Five failures lock a student code for 15 minutes.
+
+The `alumni_access_code_required` setting is the cutover switch. While it is `0`,
+someone who has **never set a password** may still type their ID into the password
+box, but that session is never asked to set one — otherwise whoever bought the ID
+could choose the password before the owner. Keep that asymmetry if you touch it.
 
 ### Per-request obligations
 

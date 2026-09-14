@@ -137,4 +137,88 @@ class AccountController extends Controller
             'user'  => $user,
         ));
     }
+
+    /**
+     * A student or graduate choosing their own password.
+     *
+     * Reached two ways: forced, straight after signing in with a teacher's
+     * one-time code, when nothing else is reachable until this is done; or
+     * from the menu, when the current password is asked for first so an
+     * unattended session cannot be turned into a permanent takeover.
+     *
+     * Not guarded by require_role(), which would bounce the forced session
+     * straight back here.
+     */
+    public function alumniPassword()
+    {
+        $identity = $this->auth->user();
+        if ($identity === null || arr($identity, 'kind') !== 'alumni') {
+            if ($identity === null) {
+                flash('error', 'กรุณาเข้าสู่ระบบก่อนใช้งาน');
+                redirect('login');
+            }
+            redirect($this->auth->homeRoute());
+        }
+
+        $person = $this->repo->alumni($this->auth->id());
+        if ($person === null) {
+            $this->auth->logout();
+            redirect('login');
+        }
+        $forced = $this->auth->mustSetPassword();
+
+        if (is_post()) {
+            csrf_verify();
+
+            $new = post('new_password');
+            $confirm = post('confirm_password');
+
+            if (!$forced) {
+                $hash = (string) arr($person, 'password_hash', '');
+                // Someone still on the transitional ID-only sign-in has no
+                // password to confirm; asking for the ID instead would make
+                // the leaked ID enough to take the account over.
+                if ($hash === '' || !password_verify(post('current_password'), $hash)) {
+                    $this->repo->audit('alumni.password_failed', $person['student_code'],
+                        'รหัสผ่านปัจจุบันไม่ถูกต้อง', $this->actor());
+                    flash('error', $hash === ''
+                        ? 'บัญชีนี้ยังไม่ได้ตั้งรหัสผ่าน กรุณาขอรหัสเข้าใช้ครั้งแรกจากครูที่ปรึกษา'
+                        : 'รหัสผ่านปัจจุบันไม่ถูกต้อง');
+                    redirect('account/set-password');
+                }
+            }
+
+            $problem = Auth::alumniPasswordProblem($new, $person);
+            if ($problem === '' && $new !== $confirm) {
+                $problem = 'ยืนยันรหัสผ่านใหม่ไม่ตรงกัน';
+            }
+            if ($problem === '' && !$forced && $new === post('current_password')) {
+                $problem = 'รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสผ่านเดิม';
+            }
+            if ($problem !== '') {
+                flash('error', $problem);
+                redirect('account/set-password');
+            }
+
+            $this->repo->setAlumniPassword($person['id'], $new);
+            $this->auth->updateIdentity(array('must_set_password' => false));
+            $this->repo->audit(
+                $forced ? 'alumni.password_set' : 'alumni.password_change',
+                $person['student_code'],
+                $forced ? 'ตั้งรหัสผ่านด้วยรหัสเข้าใช้ครั้งแรก' : null,
+                $this->actor()
+            );
+
+            flash('success', $forced
+                ? 'ตั้งรหัสผ่านเรียบร้อยแล้ว ครั้งต่อไปให้เข้าสู่ระบบด้วยรหัสนักศึกษาและรหัสผ่านนี้'
+                : 'เปลี่ยนรหัสผ่านเรียบร้อยแล้ว');
+            redirect($this->auth->homeRoute());
+        }
+
+        $this->render('account/alumni-password', array(
+            'title'  => $forced ? 'ตั้งรหัสผ่าน' : 'เปลี่ยนรหัสผ่าน',
+            'person' => $person,
+            'forced' => $forced,
+        ));
+    }
 }

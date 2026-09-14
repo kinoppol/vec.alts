@@ -89,6 +89,28 @@ $cols = 'grid-template-columns:1.4fr 1fr 1.2fr .8fr';
     </div>
   </form>
 
+  <?php if ($total > 0): ?>
+    <form class="table-toolbar" method="post" action="<?php echo e(url('access-codes/issue')); ?>"
+          style="border-top:1px solid var(--line)">
+      <?php echo csrf_field(); ?>
+      <input type="hidden" name="scope" value="filtered">
+      <input type="hidden" name="q" value="<?php echo e($filters['search']); ?>">
+      <input type="hidden" name="dept" value="<?php echo e($filters['department_id']); ?>">
+      <input type="hidden" name="study" value="<?php echo e($filters['study_state']); ?>">
+      <input type="hidden" name="state" value="<?php echo e($filters['state']); ?>">
+      <label class="cell-dim" style="display:flex;gap:6px;align-items:center;font-size:13px">
+        <input type="checkbox" name="only_unset" value="1" checked>
+        เฉพาะผู้ที่ยังไม่ได้ตั้งรหัสผ่าน
+      </label>
+      <button type="submit" class="btn btn-sm"
+              data-confirm-title="ออกรหัสเข้าใช้ครั้งแรกให้รายชื่อที่แสดง?"
+              data-confirm-ok="ออกรหัสและพิมพ์ใบแจ้ง"
+              data-confirm="ตามตัวกรองปัจจุบัน <?php echo e(num($total)); ?> รายการ&#10;รหัสเดิมที่ยังไม่ได้ใช้จะถูกแทนที่ และหน้าใบแจ้งรหัสแสดงได้ครั้งเดียว">
+        🔑 ออกรหัสเข้าใช้ครั้งแรกให้รายชื่อที่แสดง
+      </button>
+    </form>
+  <?php endif; ?>
+
   <div class="table-head" style="<?php echo $cols; ?>">
     <span>ชื่อ - รหัส</span><span>สาขา</span><span>สถานะ</span><span></span>
   </div>
@@ -129,6 +151,17 @@ $cols = 'grid-template-columns:1.4fr 1fr 1.2fr .8fr';
             <a class="btn btn-sm" style="color:var(--primary)"
                href="<?php echo e(url('advisor/fill', array('id' => $row['id']))); ?>">กรอกแทน</a>
           <?php endif; ?>
+          <form method="post" action="<?php echo e(url('access-codes/issue')); ?>" style="display:inline">
+            <?php echo csrf_field(); ?>
+            <input type="hidden" name="id" value="<?php echo e($row['id']); ?>">
+            <button type="submit" class="btn btn-sm"
+                    title="<?php echo (string) arr($row, 'password_hash', '') !== '' ? 'ตั้งรหัสผ่านแล้ว · ออกรหัสใหม่เมื่อลืมรหัสผ่าน' : 'ยังไม่ตั้งรหัสผ่าน'; ?>"
+                    data-confirm-title="ออกรหัสเข้าใช้ครั้งแรก?"
+                    data-confirm-ok="ออกรหัส"
+                    data-confirm="รหัส <?php echo e($row['student_code']); ?>&#10;ใช้เมื่อเข้าใช้ครั้งแรกหรือลืมรหัสผ่าน รหัสผ่านเดิมยังใช้ได้จนกว่าจะตั้งใหม่">
+              🔑 ออกรหัส
+            </button>
+          </form>
         </span>
       </div>
     <?php endforeach; ?>

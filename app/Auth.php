@@ -2,10 +2,17 @@
 /**
  * Session authentication for the two account kinds:
  *  - staff  -> `users` table  (advisor / exec / schooladmin / centraladmin)
- *  - alumni -> `alumni` table (student code + national ID)
+ *  - alumni -> `alumni` table (student code + password, or on first use the
+ *              national ID plus a one-time code from their teacher)
  */
 class Auth
 {
+    /** Wrong attempts on one student code before it is locked. */
+    const ALUMNI_MAX_FAILURES = 5;
+
+    /** How long a locked student code stays locked. */
+    const ALUMNI_LOCK_MINUTES = 15;
+
     /** @var PDO */
     private $db;
 
@@ -92,21 +99,166 @@ class Auth
     }
 
     /**
-     * Alumni sign in with their old student code and their national ID.
+     * Everyday sign-in for students and graduates: student code and the
+     * password they chose.
+     *
+     * While the central administrator still has the one-time code switched
+     * off, someone who has never set a password may type their national ID
+     * here instead. That session is not asked to set a password: letting it
+     * would let whoever bought the ID choose the password before the owner.
+     *
+     * @param string $studentCode
+     * @param string $password
+     * @return array
+     */
+    public function loginAlumni($studentCode, $password)
+    {
+        $studentCode = trim((string) $studentCode);
+        $password = (string) $password;
+
+        if ($studentCode === '' || $password === '') {
+            return array('ok' => false, 'error' => 'กรุณากรอกรหัสนักศึกษาและรหัสผ่าน', 'user' => null);
+        }
+
+        $legacyAllowed = !$this->accessCodeRequired();
+        $legacyId = preg_replace('/\D/', '', $password);
+        $now = date('Y-m-d H:i:s');
+        $locked = false;
+        $alumni = null;
+
+        // Student codes are only unique within a school, so the same code can
+        // belong to people at different institutions. The secret decides
+        // which of them is signing in.
+        foreach ($this->alumniByCode($studentCode) as $row) {
+            if ($this->isLocked($row, $now)) {
+                $locked = true;
+                continue;
+            }
+            $hash = (string) arr($row, 'password_hash', '');
+            if ($hash !== '') {
+                if (password_verify($password, $hash)) {
+                    $alumni = $row;
+                    break;
+                }
+            } elseif ($legacyAllowed && $legacyId !== ''
+                && password_verify($legacyId, $row['national_id_hash'])) {
+                $alumni = $row;
+                break;
+            }
+        }
+
+        if (!$alumni) {
+            return $this->alumniFailure($studentCode, $locked,
+                'รหัสนักศึกษาหรือรหัสผ่านไม่ถูกต้อง');
+        }
+
+        return $this->finishAlumniLogin($alumni, false);
+    }
+
+    /**
+     * First use, or a forgotten password: national ID plus the one-time code
+     * a teacher issued. Succeeding opens a session that can do nothing until a
+     * password has been chosen.
      *
      * @param string $studentCode
      * @param string $nationalId
+     * @param string $accessCode
      * @return array
      */
-    public function loginAlumni($studentCode, $nationalId)
+    public function loginAlumniFirstTime($studentCode, $nationalId, $accessCode)
     {
         $studentCode = trim((string) $studentCode);
         $nationalId = preg_replace('/\D/', '', (string) $nationalId);
+        $accessCode = self::normaliseAccessCode($accessCode);
 
-        if ($studentCode === '' || $nationalId === '') {
-            return array('ok' => false, 'error' => 'กรุณากรอกรหัสนักศึกษาและเลขบัตรประชาชน', 'user' => null);
+        if ($studentCode === '' || $nationalId === '' || $accessCode === '') {
+            return array('ok' => false,
+                'error' => 'กรุณากรอกรหัสนักศึกษา เลขบัตรประชาชน และรหัสเข้าใช้ครั้งแรก', 'user' => null);
         }
 
+        $now = date('Y-m-d H:i:s');
+        $locked = false;
+        $alumni = null;
+
+        foreach ($this->alumniByCode($studentCode) as $row) {
+            if ($this->isLocked($row, $now)) {
+                $locked = true;
+                continue;
+            }
+            if (!password_verify($nationalId, $row['national_id_hash'])) {
+                continue;
+            }
+            $codeHash = (string) arr($row, 'access_code_hash', '');
+            $expires = (string) arr($row, 'access_code_expires_at', '');
+            if ($codeHash !== '' && $expires !== '' && $expires >= $now
+                && password_verify($accessCode, $codeHash)) {
+                $alumni = $row;
+            }
+            break;
+        }
+
+        if (!$alumni) {
+            // One message for every cause. Saying "the code has expired" would
+            // confirm to someone holding a leaked ID that the ID was right.
+            return $this->alumniFailure($studentCode, $locked,
+                'ข้อมูลไม่ถูกต้อง หรือรหัสเข้าใช้ครั้งแรกหมดอายุแล้ว กรุณาติดต่อครูที่ปรึกษาเพื่อขอรหัสใหม่');
+        }
+
+        return $this->finishAlumniLogin($alumni, true);
+    }
+
+    /**
+     * @param string $code
+     * @return string upper case, spaces and dashes removed
+     */
+    public static function normaliseAccessCode($code)
+    {
+        return strtoupper(preg_replace('/[\s\-]/', '', (string) $code));
+    }
+
+    /**
+     * Why a proposed password is unacceptable, or '' when it is fine.
+     *
+     * Deliberately no rules about symbols or mixed case: people who are made
+     * to invent those write them on paper. What is refused is what an attacker
+     * holding this person's leaked records would try first.
+     *
+     * @param string $password
+     * @param array $alumni the person's row
+     * @return string
+     */
+    public static function alumniPasswordProblem($password, $alumni)
+    {
+        $password = (string) $password;
+        if (mb_strlen($password) < 8) {
+            return 'รหัสผ่านต้องยาวอย่างน้อย 8 ตัวอักษร';
+        }
+        // Separators are ignored, so 1-2345-67890-12-3 is refused as well.
+        $digits = preg_replace('/[\s\-]/', '', $password);
+        $allDigits = ctype_digit($digits);
+        if ($allDigits && password_verify($digits, (string) arr($alumni, 'national_id_hash', ''))) {
+            return 'ห้ามใช้เลขบัตรประชาชนเป็นรหัสผ่าน';
+        }
+        if ($digits === (string) arr($alumni, 'student_code', '')) {
+            return 'ห้ามใช้รหัสนักศึกษาเป็นรหัสผ่าน';
+        }
+        $phone = preg_replace('/\D/', '', (string) arr($alumni, 'phone', ''));
+        if ($allDigits && $phone !== '' && $digits === $phone) {
+            return 'ห้ามใช้เบอร์โทรศัพท์เป็นรหัสผ่าน';
+        }
+        $common = array('12345678', '123456789', '1234567890', '87654321', '11111111',
+            '00000000', '88888888', 'password', 'password1', 'qwertyui', 'abcd1234', '1q2w3e4r');
+        if (in_array(strtolower($password), $common, true)) {
+            return 'รหัสผ่านนี้เดาง่ายเกินไป กรุณาตั้งรหัสอื่น';
+        }
+        return '';
+    }
+
+    /**
+     * @return array rows sharing the student code, with school and department
+     */
+    private function alumniByCode($studentCode)
+    {
         $sql = 'SELECT a.*, s.name AS school_name, s.status AS school_status,'
             . ' d.name AS department_name'
             . ' FROM `' . $this->t('alumni') . '` a'
@@ -115,22 +267,66 @@ class Auth
             . ' WHERE a.student_code = ?';
         $stmt = $this->db->prepare($sql);
         $stmt->execute(array($studentCode));
+        return $stmt->fetchAll();
+    }
 
-        // Student codes are only unique within a school, so the same code can
-        // belong to people at different institutions. The national ID decides
-        // which of them is signing in.
-        $alumni = null;
-        foreach ($stmt->fetchAll() as $row) {
-            if (password_verify($nationalId, $row['national_id_hash'])) {
-                $alumni = $row;
-                break;
-            }
-        }
+    private function isLocked($row, $now)
+    {
+        $until = (string) arr($row, 'locked_until', '');
+        return $until !== '' && $until > $now;
+    }
 
-        if (!$alumni) {
-            $this->recordFailure('alumni', $studentCode);
-            return array('ok' => false, 'error' => 'รหัสนักศึกษาหรือเลขบัตรประชาชนไม่ถูกต้อง', 'user' => null);
+    /**
+     * Counts a failed attempt against the student code and says so.
+     */
+    private function alumniFailure($studentCode, $locked, $message)
+    {
+        $this->recordFailure('alumni', $studentCode);
+        $this->countAlumniFailure($studentCode);
+        if ($locked) {
+            $message = 'บัญชีนี้ถูกล็อกชั่วคราวเพราะกรอกข้อมูลผิดหลายครั้ง กรุณารอ '
+                . self::ALUMNI_LOCK_MINUTES . ' นาทีแล้วลองใหม่';
         }
+        return array('ok' => false, 'error' => $message, 'user' => null);
+    }
+
+    /**
+     * Adds one failure to every unlocked row with this code, locking the ones
+     * that reach the limit.
+     *
+     * Every row, because an attacker does not say which school they mean. The
+     * counter restarts on lock, so the first mistake after a lock expires does
+     * not lock the account again straight away.
+     */
+    private function countAlumniFailure($studentCode)
+    {
+        $now = date('Y-m-d H:i:s');
+        $until = date('Y-m-d H:i:s', time() + self::ALUMNI_LOCK_MINUTES * 60);
+        $limit = self::ALUMNI_MAX_FAILURES;
+
+        // MySQL assigns left to right, so locked_until is decided from the
+        // counter's old value before the counter itself changes.
+        $sql = 'UPDATE `' . $this->t('alumni') . '` SET'
+            . ' locked_until = CASE WHEN login_failures + 1 >= ? THEN ? ELSE locked_until END,'
+            . ' login_failures = CASE WHEN login_failures + 1 >= ? THEN 0 ELSE login_failures + 1 END'
+            . ' WHERE student_code = ? AND (locked_until IS NULL OR locked_until <= ?)';
+        try {
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute(array($limit, $until, $limit, $studentCode, $now));
+        } catch (PDOException $e) {
+            // Before migration 0011 the columns do not exist yet; sign-in must
+            // still work so an administrator can reach the migration screen.
+            app_log('alumni lockout unavailable: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * @param array $alumni
+     * @param bool $mustSetPassword
+     * @return array
+     */
+    private function finishAlumniLogin($alumni, $mustSetPassword)
+    {
         if ($alumni['status'] === 'inactive') {
             return array('ok' => false, 'error' => 'บัญชีนี้ถูกระงับการใช้งาน', 'user' => null);
         }
@@ -140,17 +336,17 @@ class Auth
 
         // Students and graduates are the same people in the same table and
         // sign in identically; which screen they land on is decided by where
-        // they are in their studies. arr() covers the window between deploying
-        // this code and running the migration that adds the column.
+        // they are in their studies.
         $studying = arr($alumni, 'study_state', 'graduated') === 'studying';
 
         $this->startSession(array(
-            'kind'        => 'alumni',
-            'id'          => (int) $alumni['id'],
-            'school_id'   => (int) $alumni['school_id'],
-            'role'        => $studying ? 'student' : 'alumni',
-            'name'        => trim($alumni['title'] . $alumni['first_name'] . ' ' . $alumni['last_name']),
-            'school_name' => $alumni['school_name'],
+            'kind'              => 'alumni',
+            'id'                => (int) $alumni['id'],
+            'school_id'         => (int) $alumni['school_id'],
+            'role'              => $studying ? 'student' : 'alumni',
+            'name'              => trim($alumni['title'] . $alumni['first_name'] . ' ' . $alumni['last_name']),
+            'school_name'       => $alumni['school_name'],
+            'must_set_password' => (bool) $mustSetPassword,
         ));
 
         $upd = $this->db->prepare(
@@ -158,7 +354,43 @@ class Auth
         );
         $upd->execute(array(date('Y-m-d H:i:s'), $alumni['id']));
 
+        if (array_key_exists('login_failures', $alumni)) {
+            $reset = $this->db->prepare(
+                'UPDATE `' . $this->t('alumni') . '` SET login_failures = 0, locked_until = NULL WHERE id = ?'
+            );
+            $reset->execute(array($alumni['id']));
+        }
+
         return array('ok' => true, 'error' => '', 'user' => $alumni);
+    }
+
+    /**
+     * Whether students and graduates need the teacher's one-time code.
+     * @return bool
+     */
+    public function accessCodeRequired()
+    {
+        try {
+            $stmt = $this->db->prepare(
+                'SELECT setting_value FROM `' . $this->t('settings') . '` WHERE setting_key = ? LIMIT 1'
+            );
+            $stmt->execute(array('alumni_access_code_required'));
+            $value = $stmt->fetchColumn();
+        } catch (PDOException $e) {
+            return false;
+        }
+        return $value === '1';
+    }
+
+    /**
+     * True for a session opened with a one-time code that has not chosen a
+     * password yet.
+     * @return bool
+     */
+    public function mustSetPassword()
+    {
+        $u = $this->user();
+        return $u !== null && !empty($u['must_set_password']);
     }
 
     /**
@@ -376,6 +608,11 @@ class Auth
             flash('error', 'กรุณาเข้าสู่ระบบก่อนใช้งาน');
             redirect('login');
         }
+        // A session opened with a one-time code reaches nothing else until it
+        // has chosen a password; otherwise the code would be a login in itself.
+        if ($this->mustSetPassword()) {
+            redirect('account/set-password');
+        }
         if (!$this->is($roles)) {
             http_response_code(403);
             flash('error', 'คุณไม่มีสิทธิ์เข้าถึงหน้านี้');
@@ -389,6 +626,9 @@ class Auth
      */
     public function homeRoute()
     {
+        if ($this->mustSetPassword()) {
+            return 'account/set-password';
+        }
         switch ($this->role()) {
             case 'student':
                 return 'student';

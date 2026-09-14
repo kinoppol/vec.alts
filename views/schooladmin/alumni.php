@@ -53,6 +53,28 @@ $studyFilter = (string) arr($filters, 'study_state', '');
     <span class="cell-dim">พบ <?php echo e(num($total)); ?> รายการ</span>
   </form>
 
+  <?php if ($total > 0): ?>
+    <form class="table-toolbar" method="post" action="<?php echo e(url('access-codes/issue')); ?>"
+          style="border-top:1px solid var(--line)">
+      <?php echo csrf_field(); ?>
+      <input type="hidden" name="scope" value="filtered">
+      <input type="hidden" name="q" value="<?php echo e($filters['search']); ?>">
+      <input type="hidden" name="dept" value="<?php echo e($filters['department_id']); ?>">
+      <input type="hidden" name="study" value="<?php echo e($studyFilter); ?>">
+      <input type="hidden" name="state" value="<?php echo e($filters['state']); ?>">
+      <label class="cell-dim" style="display:flex;gap:6px;align-items:center;font-size:13px">
+        <input type="checkbox" name="only_unset" value="1" checked>
+        เฉพาะผู้ที่ยังไม่ได้ตั้งรหัสผ่าน
+      </label>
+      <button type="submit" class="btn btn-sm"
+              data-confirm-title="ออกรหัสเข้าใช้ครั้งแรกให้รายชื่อที่แสดง?"
+              data-confirm-ok="ออกรหัสและพิมพ์ใบแจ้ง"
+              data-confirm="ตามตัวกรองปัจจุบัน <?php echo e(num($total)); ?> รายการ&#10;รหัสเดิมที่ยังไม่ได้ใช้จะถูกแทนที่ และหน้าใบแจ้งรหัสแสดงได้ครั้งเดียว">
+        🔑 ออกรหัสเข้าใช้ครั้งแรกให้รายชื่อที่แสดง
+      </button>
+    </form>
+  <?php endif; ?>
+
   <div class="table-head" style="<?php echo $cols; ?>">
     <span>ชื่อ - รหัส</span><span>สาขา</span><span>ปีจบ</span><span>ครูที่ปรึกษา</span>
     <span>สถานะสำรวจ</span><span>กลุ่ม</span>
@@ -83,7 +105,26 @@ $studyFilter = (string) arr($filters, 'study_state', '');
       <div class="table-row" style="<?php echo $cols; ?>">
         <div>
           <div class="cell-title"><?php echo e(trim($row['title'] . $row['first_name'] . ' ' . $row['last_name'])); ?></div>
-          <div class="cell-sub">รหัส <?php echo e($row['student_code']); ?></div>
+          <div class="cell-sub">
+            รหัส <?php echo e($row['student_code']); ?> ·
+            <?php if ((string) arr($row, 'password_hash', '') !== ''): ?>
+              <span style="color:var(--ok)">ตั้งรหัสผ่านแล้ว</span>
+            <?php elseif ((string) arr($row, 'access_code_expires_at', '') >= date('Y-m-d H:i:s')): ?>
+              มีรหัสรอใช้งาน
+            <?php else: ?>
+              ยังไม่ตั้งรหัสผ่าน
+            <?php endif; ?>
+          </div>
+          <form method="post" action="<?php echo e(url('access-codes/issue')); ?>" style="margin-top:4px">
+            <?php echo csrf_field(); ?>
+            <input type="hidden" name="id" value="<?php echo e($row['id']); ?>">
+            <button type="submit" class="btn btn-sm"
+                    data-confirm-title="ออกรหัสเข้าใช้ครั้งแรก?"
+                    data-confirm-ok="ออกรหัส"
+                    data-confirm="รหัส <?php echo e($row['student_code']); ?>&#10;ใช้เมื่อเข้าใช้ครั้งแรกหรือลืมรหัสผ่าน รหัสผ่านเดิมยังใช้ได้จนกว่าจะตั้งใหม่">
+              🔑 ออกรหัส
+            </button>
+          </form>
         </div>
         <span class="cell-dim"><?php echo e($row['department_name'] !== null ? $row['department_name'] : '—'); ?></span>
         <span class="cell-dim"><?php echo e((int) $row['graduation_year'] > 0 ? $row['graduation_year'] : '—'); ?></span>

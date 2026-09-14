@@ -720,6 +720,98 @@ class Repository
         return (int) $this->scalar($sql, array_merge(array($year), $params));
     }
 
+    /** Days a one-time access code stays valid. */
+    const ACCESS_CODE_DAYS = 30;
+
+    /**
+     * Gives one person a fresh one-time code and returns it in plain text.
+     *
+     * Only the hash is stored, so this return value is the only time anyone
+     * sees the code. An existing password keeps working until the code is
+     * used, so a code issued by mistake locks nobody out.
+     *
+     * @param int $id
+     * @return array array('code' => string, 'expires_at' => string)
+     */
+    public function issueAccessCode($id)
+    {
+        $code = self::generateAccessCode();
+        $expires = date('Y-m-d H:i:s', time() + self::ACCESS_CODE_DAYS * 86400);
+        $this->run(
+            'UPDATE `{p}alumni` SET access_code_hash = ?, access_code_expires_at = ?,'
+            . ' login_failures = 0, locked_until = NULL, updated_at = ? WHERE id = ?',
+            array(password_hash($code, PASSWORD_DEFAULT, array('cost' => 10)), $expires,
+                date('Y-m-d H:i:s'), (int) $id)
+        );
+        return array('code' => $code, 'expires_at' => $expires);
+    }
+
+    /**
+     * Eight characters from an alphabet without look-alikes (no 0/O, 1/I/L),
+     * so a code copied off a printed slip is typed correctly first time.
+     *
+     * @return string
+     */
+    public static function generateAccessCode()
+    {
+        $alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+        $size = strlen($alphabet);
+        // Bytes at or above this value would favour the first letters.
+        $ceiling = 256 - (256 % $size);
+        $code = '';
+        while (strlen($code) < 8) {
+            $byte = ord(vec_random_bytes(1));
+            if ($byte < $ceiling) {
+                $code .= $alphabet[$byte % $size];
+            }
+        }
+        return $code;
+    }
+
+    /**
+     * Stores a password the person chose and retires their one-time code.
+     *
+     * @param int $id
+     * @param string $plainPassword
+     */
+    public function setAlumniPassword($id, $plainPassword)
+    {
+        $now = date('Y-m-d H:i:s');
+        $this->run(
+            'UPDATE `{p}alumni` SET password_hash = ?, password_set_at = ?,'
+            . ' access_code_hash = NULL, access_code_expires_at = NULL,'
+            . ' login_failures = 0, locked_until = NULL, updated_at = ? WHERE id = ?',
+            array(password_hash((string) $plainPassword, PASSWORD_DEFAULT, array('cost' => 10)),
+                $now, $now, (int) $id)
+        );
+    }
+
+    /**
+     * How far an institution, or the whole system, is through the switch to
+     * passwords.
+     *
+     * @param int|null $schoolId null for every institution
+     * @return array total / password_set / code_pending
+     */
+    public function alumniAccessStats($schoolId = null)
+    {
+        $where = $schoolId === null ? '' : ' WHERE school_id = ?';
+        $params = $schoolId === null ? array() : array((int) $schoolId);
+        $row = $this->one(
+            'SELECT COUNT(*) AS total,'
+            . ' SUM(CASE WHEN password_hash IS NOT NULL THEN 1 ELSE 0 END) AS password_set,'
+            . ' SUM(CASE WHEN password_hash IS NULL AND access_code_expires_at >= ? THEN 1 ELSE 0 END)'
+            . ' AS code_pending'
+            . ' FROM `{p}alumni`' . $where,
+            array_merge(array(date('Y-m-d H:i:s')), $params)
+        );
+        return array(
+            'total'        => (int) arr($row, 'total', 0),
+            'password_set' => (int) arr($row, 'password_set', 0),
+            'code_pending' => (int) arr($row, 'code_pending', 0),
+        );
+    }
+
     /**
      * @param array $data
      * @return int new alumni id

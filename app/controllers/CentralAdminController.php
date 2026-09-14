@@ -542,6 +542,16 @@ class CentralAdminController extends Controller
             $this->repo->setSetting('allow_self_update', post('allow_self_update') === '1' ? '1' : '0');
             $this->repo->setSetting('allow_school_register', post('allow_school_register') === '1' ? '1' : '0');
 
+            $codeRequired = post('alumni_access_code_required') === '1' ? '1' : '0';
+            if ($codeRequired !== $this->repo->setting('alumni_access_code_required', '0')) {
+                // Worth its own entry: switching it off reopens sign-in with a
+                // national ID alone.
+                $this->repo->audit('settings.access_code', 'system',
+                    $codeRequired === '1' ? 'บังคับใช้รหัสเข้าใช้ครั้งแรก' : 'ยกเลิกการบังคับใช้รหัสเข้าใช้ครั้งแรก',
+                    $this->actor());
+            }
+            $this->repo->setSetting('alumni_access_code_required', $codeRequired);
+
             // Kept apart from the other switches in the interface because
             // leaving it on exposes database and path detail to whoever
             // triggers an error, including the public.
@@ -576,6 +586,8 @@ class CentralAdminController extends Controller
                 'survey_year'       => $this->repo->surveyYear(),
                 'allow_self_update' => $this->repo->setting('allow_self_update', '1'),
                 'allow_school_register' => $this->repo->setting('allow_school_register', '1'),
+                'alumni_access_code_required' => $this->repo->setting('alumni_access_code_required', '0'),
+                'access_stats'      => $this->repo->alumniAccessStats(),
                 'rms_base_url'      => $this->repo->setting('rms_base_url', ''),
                 'app_debug'         => $this->repo->setting('app_debug', '0'),
             ),
