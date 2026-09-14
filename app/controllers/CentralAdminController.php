@@ -572,7 +572,7 @@ class CentralAdminController extends Controller
         $this->render('centraladmin/settings', array(
             'title'    => 'ตั้งค่าระบบ',
             'settings' => array(
-                'site_title'        => $this->repo->setting('site_title', 'ระบบติดตามผู้สำเร็จการศึกษา'),
+                'site_title'        => $this->repo->setting('site_title', 'ระบบติดตามข้อมูลนักศึกษา'),
                 'survey_year'       => $this->repo->surveyYear(),
                 'allow_self_update' => $this->repo->setting('allow_self_update', '1'),
                 'allow_school_register' => $this->repo->setting('allow_school_register', '1'),

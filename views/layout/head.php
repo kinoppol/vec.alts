@@ -5,8 +5,8 @@
  * @var string $title
  * @var string $appName
  */
-$pageTitle = isset($title) && $title !== '' ? $title : 'ระบบติดตามผู้สำเร็จการศึกษา';
-$siteName = isset($appName) && $appName !== '' ? $appName : 'ระบบติดตามผู้สำเร็จการศึกษา';
+$pageTitle = isset($title) && $title !== '' ? $title : 'ระบบติดตามข้อมูลนักศึกษา';
+$siteName = isset($appName) && $appName !== '' ? $appName : 'ระบบติดตามข้อมูลนักศึกษา';
 ?>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">

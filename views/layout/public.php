@@ -47,7 +47,7 @@
 
 <footer class="site-footer">
   <div class="site-footer-inner">
-    <span>© <?php echo e(current_academic_year()); ?> ระบบติดตามผู้สำเร็จการศึกษา สายอาชีวศึกษา</span>
+    <span>© <?php echo e(current_academic_year()); ?> ระบบติดตามข้อมูลนักศึกษา สายอาชีวศึกษา</span>
     <span>รองรับหลายสถานศึกษา · โหมดมืด-สว่างตามระบบ</span>
   </div>
 </footer>

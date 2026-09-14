@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this is
 
 A multi-tenant alumni employment-tracking web app for Thai vocational colleges
-(ระบบติดตามศิษย์เก่า). Plain PHP + MySQL, no framework, no dependency manager,
+(ระบบติดตามข้อมูลนักศึกษา). Plain PHP + MySQL, no framework, no dependency manager,
 no build step. All user-facing strings are Thai.
 
 `README.md` (Thai) is the operator-facing manual — installation, migration

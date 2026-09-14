@@ -30,7 +30,7 @@ return array(
         $now = date('Y-m-d H:i:s');
         $defaults = array(
             'survey_year'      => (string) (((int) date('n') < 5 ? (int) date('Y') - 1 : (int) date('Y')) + 543),
-            'site_title'       => 'ระบบติดตามศิษย์เก่า',
+            'site_title'       => 'ระบบติดตามข้อมูลนักศึกษา',
             'allow_self_update' => '1',
         );
         foreach ($defaults as $key => $value) {

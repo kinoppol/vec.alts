@@ -1,5 +1,5 @@
 /* ===========================================================================
-   ระบบติดตามศิษย์เก่า — stylesheet
+   ระบบติดตามข้อมูลนักศึกษา — stylesheet
    Colour tokens, spacing and radii are taken verbatim from the design file.
    Fallback colours are written before every color-mix() so older browsers
    (and the Chrome/Firefox versions still common on school desktops) get a

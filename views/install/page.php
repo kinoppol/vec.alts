@@ -33,7 +33,7 @@ $currentIndex = array_search($step, $stepOrder, true);
  */
 $appName = trim((string) arr(arr($config, 'app', array()), 'name', ''));
 if ($appName === '') {
-    $appName = 'ระบบติดตามผู้สำเร็จการศึกษา';
+    $appName = 'ระบบติดตามข้อมูลนักศึกษา';
 }
 ?><!doctype html>
 <html lang="th">
@@ -539,7 +539,7 @@ code{background:var(--surface-2);padding:2px 6px;border-radius:5px;font-size:12p
   <?php endif; ?>
 
   <p style="text-align:center;font-size:12px;color:var(--text-dim);margin-top:24px">
-    ระบบติดตามผู้สำเร็จการศึกษา สายอาชีวศึกษา · เวอร์ชัน <?php echo e(VEC_VERSION); ?>
+    ระบบติดตามข้อมูลนักศึกษา สายอาชีวศึกษา · เวอร์ชัน <?php echo e(VEC_VERSION); ?>
   </p>
 
 </div>
