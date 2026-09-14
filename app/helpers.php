@@ -206,7 +206,9 @@ function csrf_check()
 function csrf_verify()
 {
     if (!csrf_check()) {
-        http_response_code(419);
+        // 403 rather than Laravel's 419: Apache does not know 419 and turns
+        // it into a 500, hiding this message behind a server error page.
+        http_response_code(403);
         echo '<h1>คำขอหมดอายุ</h1><p>กรุณาย้อนกลับและส่งฟอร์มใหม่อีกครั้ง</p>';
         exit;
     }

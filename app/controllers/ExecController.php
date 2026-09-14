@@ -72,7 +72,7 @@ class ExecController extends Controller
         $gradYear = query_int('grad_year', 0);
         $scope = query('scope', 'answered');
 
-        $where = 'a.school_id = ?';
+        $where = 'a.school_id = ? AND a.study_state = "graduated"';
         $params = array($surveyYear, $schoolId);
         if ($gradYear > 0) {
             $where .= ' AND a.graduation_year = ?';

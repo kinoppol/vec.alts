@@ -112,12 +112,22 @@ class Auth
             . ' FROM `' . $this->t('alumni') . '` a'
             . ' LEFT JOIN `' . $this->t('schools') . '` s ON s.id = a.school_id'
             . ' LEFT JOIN `' . $this->t('departments') . '` d ON d.id = a.department_id'
-            . ' WHERE a.student_code = ? LIMIT 1';
+            . ' WHERE a.student_code = ?';
         $stmt = $this->db->prepare($sql);
         $stmt->execute(array($studentCode));
-        $alumni = $stmt->fetch();
 
-        if (!$alumni || !password_verify($nationalId, $alumni['national_id_hash'])) {
+        // Student codes are only unique within a school, so the same code can
+        // belong to people at different institutions. The national ID decides
+        // which of them is signing in.
+        $alumni = null;
+        foreach ($stmt->fetchAll() as $row) {
+            if (password_verify($nationalId, $row['national_id_hash'])) {
+                $alumni = $row;
+                break;
+            }
+        }
+
+        if (!$alumni) {
             $this->recordFailure('alumni', $studentCode);
             return array('ok' => false, 'error' => 'รหัสนักศึกษาหรือเลขบัตรประชาชนไม่ถูกต้อง', 'user' => null);
         }
