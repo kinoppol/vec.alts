@@ -11,6 +11,23 @@ class SchoolAdminController extends Controller
     const USERS_PER_PAGE = 50;
     const MAX_UPLOAD = 5242880; // 5 MB
 
+    /**
+     * Fixed column layout of the roster Excel that RMS prints for a class
+     * that has finished — "รายชื่อนักเรียนที่จบการศึกษา". The live RMS sync
+     * (RmsImporter) drops people the moment they graduate, so this report is
+     * the only source for them; it has no header names worth matching
+     * (the name column is one merged cell over three), so the position of
+     * each column is hard-coded here instead.
+     */
+    const RMS_COL_NATIONAL_ID = 1;
+    const RMS_COL_STUDENT_CODE = 2;
+    const RMS_COL_GROUP_CODE = 3;
+    const RMS_COL_GROUP_NAME = 4;
+    const RMS_COL_TITLE = 5;
+    const RMS_COL_FIRST_NAME = 6;
+    const RMS_COL_LAST_NAME = 7;
+    const RMS_COL_STATUS = 9;
+
     public function users()
     {
         $this->auth->require_role('schooladmin');
@@ -277,6 +294,9 @@ class SchoolAdminController extends Controller
             // Departments named in the file that do not exist yet. A real run
             // creates these; a dry run only lists them.
             'new_departments' => array(),
+            // Rows the RMS Excel report listed under a status other than
+            // "graduated" (e.g. someone who withdrew) — read but not imported.
+            'not_graduated' => 0,
         );
 
         if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
@@ -290,9 +310,13 @@ class SchoolAdminController extends Controller
             return $out;
         }
 
-        $handle = fopen($_FILES['file']['tmp_name'], 'r');
-        if ($handle === false) {
-            $out['errors'][] = 'เปิดไฟล์ไม่ได้';
+        $ext = strtolower(pathinfo($_FILES['file']['name'], PATHINFO_EXTENSION));
+        if ($ext === 'xlsx') {
+            $records = $this->readXlsxRecords($_FILES['file']['tmp_name'], $out);
+        } else {
+            $records = $this->readCsvRecords($_FILES['file']['tmp_name'], $out);
+        }
+        if ($records === null) {
             $out['failed'] = 1;
             return $out;
         }
@@ -311,40 +335,14 @@ class SchoolAdminController extends Controller
             $departments[$this->normalise($dept['name'])] = (int) $dept['id'];
         }
 
-        $header = fgetcsv($handle);
-        if ($header === false) {
-            fclose($handle);
-            $out['errors'][] = 'ไฟล์ว่างเปล่า';
-            $out['failed'] = 1;
-            return $out;
-        }
-        // Strip a UTF-8 BOM that Excel likes to add to the first cell.
-        if (isset($header[0])) {
-            $header[0] = preg_replace('/^\xEF\xBB\xBF/', '', $header[0]);
-        }
-
-        $map = array();
-        foreach ($header as $index => $name) {
-            $map[$this->normalise($name)] = $index;
-        }
-        foreach (array('student_code', 'first_name', 'last_name') as $required) {
-            if (!isset($map[$required])) {
-                fclose($handle);
-                $out['errors'][] = 'ไฟล์ขาดคอลัมน์ที่จำเป็น: ' . $required;
-                $out['failed'] = 1;
-                return $out;
-            }
-        }
-
-        $line = 1;
         $db = $this->repo->db();
         // Student codes an earlier row in this same file already accounted
         // for. Only a dry run needs them: a real import has written the row by
         // the time the repeat is read, so the lookup below finds it.
         $seenCodes = array();
 
-        while (($row = fgetcsv($handle)) !== false) {
-            $line++;
+        foreach ($records as $record) {
+            $line = $record['_line'];
             // Keep the error list from growing without bound on a bad file.
             // Checked here rather than at the end of the body so that rows
             // rejected by validation — which never reach the end — count too.
@@ -352,16 +350,9 @@ class SchoolAdminController extends Controller
                 $out['errors'][] = '... (แสดงเฉพาะ 100 รายการแรก)';
                 break;
             }
-            // Skip blank lines rather than reporting them as errors.
-            if (count($row) === 1 && trim((string) $row[0]) === '') {
-                continue;
-            }
 
-            $get = function ($key, $default = '') use ($row, $map) {
-                if (!isset($map[$key]) || !isset($row[$map[$key]])) {
-                    return $default;
-                }
-                return trim((string) $row[$map[$key]]);
+            $get = function ($key, $default = '') use ($record) {
+                return isset($record[$key]) && $record[$key] !== '' ? $record[$key] : $default;
             };
 
             $studentCode = $get('student_code');
@@ -399,7 +390,9 @@ class SchoolAdminController extends Controller
             }
 
             // Departments named in the file but not yet defined are created,
-            // so importing a roster does not need a separate setup pass.
+            // so importing a roster does not need a separate setup pass. The
+            // RMS Excel report never names one, so this simply does nothing
+            // for those rows.
             $departmentId = null;
             $departmentName = $get('department');
             if ($departmentName !== '') {
@@ -435,16 +428,34 @@ class SchoolAdminController extends Controller
             try {
                 if ($existing !== null) {
                     $db->beginTransaction();
-                    $this->repo->run(
-                        'UPDATE `{p}alumni` SET department_id = ?, title = ?, first_name = ?,'
-                        . ' last_name = ?, level = ?, graduation_year = ?, phone = ?, email = ?,'
-                        . ' line_id = ?, address = ?, updated_at = ? WHERE id = ?',
-                        array(
-                            $departmentId, $get('title'), $get('first_name'), $get('last_name'),
-                            $get('level'), $gradYear, $get('phone'), $get('email'),
-                            $get('line_id'), $get('address'), date('Y-m-d H:i:s'), $existing['id'],
-                        )
-                    );
+                    // study_state only moves forward here (studying ->
+                    // graduated), never back — a re-run of an older "still
+                    // studying" roster must not undo a graduation an admin
+                    // already recorded by hand.
+                    if ($importAs === 'graduated') {
+                        $this->repo->run(
+                            'UPDATE `{p}alumni` SET department_id = ?, title = ?, first_name = ?,'
+                            . ' last_name = ?, level = ?, graduation_year = ?, phone = ?, email = ?,'
+                            . ' line_id = ?, address = ?, study_state = ?, updated_at = ? WHERE id = ?',
+                            array(
+                                $departmentId, $get('title'), $get('first_name'), $get('last_name'),
+                                $get('level'), $gradYear, $get('phone'), $get('email'),
+                                $get('line_id'), $get('address'), 'graduated',
+                                date('Y-m-d H:i:s'), $existing['id'],
+                            )
+                        );
+                    } else {
+                        $this->repo->run(
+                            'UPDATE `{p}alumni` SET department_id = ?, title = ?, first_name = ?,'
+                            . ' last_name = ?, level = ?, graduation_year = ?, phone = ?, email = ?,'
+                            . ' line_id = ?, address = ?, updated_at = ? WHERE id = ?',
+                            array(
+                                $departmentId, $get('title'), $get('first_name'), $get('last_name'),
+                                $get('level'), $gradYear, $get('phone'), $get('email'),
+                                $get('line_id'), $get('address'), date('Y-m-d H:i:s'), $existing['id'],
+                            )
+                        );
+                    }
                     if ($nationalId !== '') {
                         $this->repo->run(
                             'UPDATE `{p}alumni` SET national_id_hash = ?, national_id_last4 = ?'
@@ -468,6 +479,8 @@ class SchoolAdminController extends Controller
                         'first_name'      => $get('first_name'),
                         'last_name'       => $get('last_name'),
                         'level'           => $get('level'),
+                        'group_code'      => $get('group_code'),
+                        'group_name'      => $get('group_name'),
                         'graduation_year' => $gradYear,
                         'phone'           => $get('phone'),
                         'email'           => $get('email'),
@@ -486,7 +499,6 @@ class SchoolAdminController extends Controller
             }
         }
 
-        fclose($handle);
         $out['new_departments'] = array_values($out['new_departments']);
 
         // A dry run changed nothing, so there is nothing to record.
@@ -500,6 +512,131 @@ class SchoolAdminController extends Controller
             );
         }
         return $out;
+    }
+
+    /**
+     * Reads a CSV upload into records keyed by its own header row.
+     *
+     * @param string $path
+     * @param array $out errors are appended here on failure
+     * @return array[]|null null on failure (a message is left in $out)
+     */
+    private function readCsvRecords($path, &$out)
+    {
+        $handle = fopen($path, 'r');
+        if ($handle === false) {
+            $out['errors'][] = 'เปิดไฟล์ไม่ได้';
+            return null;
+        }
+
+        $header = fgetcsv($handle);
+        if ($header === false) {
+            fclose($handle);
+            $out['errors'][] = 'ไฟล์ว่างเปล่า';
+            return null;
+        }
+        // Strip a UTF-8 BOM that Excel likes to add to the first cell.
+        if (isset($header[0])) {
+            $header[0] = preg_replace('/^\xEF\xBB\xBF/', '', $header[0]);
+        }
+
+        $map = array();
+        foreach ($header as $index => $name) {
+            $map[$this->normalise($name)] = $index;
+        }
+        foreach (array('student_code', 'first_name', 'last_name') as $required) {
+            if (!isset($map[$required])) {
+                fclose($handle);
+                $out['errors'][] = 'ไฟล์ขาดคอลัมน์ที่จำเป็น: ' . $required;
+                return null;
+            }
+        }
+
+        $records = array();
+        $line = 1;
+        while (($row = fgetcsv($handle)) !== false) {
+            $line++;
+            // Skip blank lines rather than reporting them as errors.
+            if (count($row) === 1 && trim((string) $row[0]) === '') {
+                continue;
+            }
+            $record = array('_line' => $line);
+            foreach ($map as $key => $index) {
+                $record[$key] = isset($row[$index]) ? trim((string) $row[$index]) : '';
+            }
+            $records[] = $record;
+        }
+        fclose($handle);
+        return $records;
+    }
+
+    /**
+     * Reads an RMS "รายชื่อนักเรียนที่จบการศึกษา" Excel export into records
+     * shaped like readCsvRecords() produces, so both feed the same import
+     * loop. Only rows marked graduated are kept; the report has no
+     * department column, so that field is always left blank.
+     *
+     * @param string $path
+     * @param array $out errors are appended here on failure; not_graduated
+     *                    is filled in with the count of rows skipped
+     * @return array[]|null null on failure (a message is left in $out)
+     */
+    private function readXlsxRecords($path, &$out)
+    {
+        try {
+            $rows = XlsxReader::readFirstSheet($path);
+        } catch (Exception $e) {
+            $out['errors'][] = $e->getMessage();
+            return null;
+        }
+
+        $records = array();
+        $notGraduated = 0;
+        $line = 0;
+        foreach ($rows as $row) {
+            $line++;
+            $studentCode = isset($row[self::RMS_COL_STUDENT_CODE]) ? trim((string) $row[self::RMS_COL_STUDENT_CODE]) : '';
+            // The title rows (college name, column headers) have nothing
+            // resembling a student code in this column; a real row always
+            // does, so this alone tells data rows from decoration apart.
+            if ($studentCode === '' || !preg_match('/^\d+$/', $studentCode)) {
+                continue;
+            }
+
+            $status = isset($row[self::RMS_COL_STATUS]) ? trim((string) $row[self::RMS_COL_STATUS]) : '';
+            if ($status !== '' && strpos($status, 'สำเร็จการศึกษา') === false) {
+                $notGraduated++;
+                continue;
+            }
+
+            $groupName = isset($row[self::RMS_COL_GROUP_NAME]) ? trim((string) $row[self::RMS_COL_GROUP_NAME]) : '';
+            $level = '';
+            if (strpos($groupName, 'ปวส') === 0) {
+                $level = 'ปวส.';
+            } elseif (strpos($groupName, 'ปวช') === 0) {
+                $level = 'ปวช.';
+            }
+
+            $records[] = array(
+                '_line'        => $line,
+                'student_code' => $studentCode,
+                'national_id'  => isset($row[self::RMS_COL_NATIONAL_ID]) ? trim((string) $row[self::RMS_COL_NATIONAL_ID]) : '',
+                'title'        => isset($row[self::RMS_COL_TITLE]) ? trim((string) $row[self::RMS_COL_TITLE]) : '',
+                'first_name'   => isset($row[self::RMS_COL_FIRST_NAME]) ? trim((string) $row[self::RMS_COL_FIRST_NAME]) : '',
+                'last_name'    => isset($row[self::RMS_COL_LAST_NAME]) ? trim((string) $row[self::RMS_COL_LAST_NAME]) : '',
+                'level'        => $level,
+                'group_code'   => isset($row[self::RMS_COL_GROUP_CODE]) ? trim((string) $row[self::RMS_COL_GROUP_CODE]) : '',
+                'group_name'   => $groupName,
+            );
+        }
+
+        if (!$records && $notGraduated === 0) {
+            $out['errors'][] = 'ไม่พบรายชื่อนักเรียนในไฟล์ Excel นี้';
+            return null;
+        }
+
+        $out['not_graduated'] = $notGraduated;
+        return $records;
     }
 
     /**

@@ -823,9 +823,10 @@ class Repository
         $this->run(
             'INSERT INTO `{p}alumni`'
             . ' (school_id, department_id, advisor_user_id, student_code, national_id_hash,'
-            . '  national_id_last4, title, first_name, last_name, level, graduation_year,'
-            . '  phone, email, line_id, address, status, study_state, created_at, updated_at)'
-            . ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            . '  national_id_last4, title, first_name, last_name, level, group_code, group_name,'
+            . '  graduation_year, phone, email, line_id, address, status, study_state,'
+            . '  created_at, updated_at)'
+            . ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             array(
                 (int) arr($data, 'school_id', 0),
                 arr($data, 'department_id') === null ? null : (int) $data['department_id'],
@@ -837,6 +838,8 @@ class Repository
                 arr($data, 'first_name', ''),
                 arr($data, 'last_name', ''),
                 arr($data, 'level', ''),
+                arr($data, 'group_code', ''),
+                arr($data, 'group_name', ''),
                 (int) arr($data, 'graduation_year', 0),
                 arr($data, 'phone', ''),
                 arr($data, 'email', ''),

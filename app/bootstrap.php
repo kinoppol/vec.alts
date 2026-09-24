@@ -28,6 +28,7 @@ require VEC_APP . '/View.php';
 require VEC_APP . '/Repository.php';
 require VEC_APP . '/Http.php';
 require VEC_APP . '/RmsImporter.php';
+require VEC_APP . '/XlsxReader.php';
 require VEC_APP . '/Seeder.php';
 
 // Before any output, including the redirect below and the fatal-error pages.
